@@ -58,7 +58,7 @@ export default function Home() {
     <div className="relative min-h-screen bg-[#121316] text-zinc-900 dark:text-zinc-100">
       {/* Main content — sits above the sticky footer, has rounded bottom + background */}
       <main className="relative z-10 rounded-b-[4.5rem] bg-[#f3f2f6] pb-24 dark:bg-[#0d1117]">
-        <div className="mx-auto max-w-7xl px-4 pt-8 sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-8 lg:px-12">
         <header className="flex items-center justify-between">
           <div className="relative flex h-[80px] w-[190px] items-center">
             <Image
