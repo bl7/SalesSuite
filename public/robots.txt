@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/forgot-password
+Disallow: /auth/reset-password
+
+Sitemap: https://kora.vercel.app/sitemap.xml
+

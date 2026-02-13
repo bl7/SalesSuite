@@ -53,38 +53,84 @@ function ScrollSection({ children, className = "", id }: { children: React.React
   );
 }
 
-export default function Home() {
+function Header() {
+  const [hasSession, setHasSession] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => {
+        setHasSession(res.ok);
+      })
+      .catch(() => {
+        setHasSession(false);
+      });
+  }, []);
+
   return (
-    <div className="relative min-h-screen bg-[#121316] text-zinc-900 dark:text-zinc-100">
-      {/* Main content — sits above the sticky footer, has rounded bottom + background */}
-      <main className="relative z-10 rounded-b-[4.5rem] bg-[#f3f2f6] pb-24 dark:bg-[#0d1117]">
-        <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-8 lg:px-12">
-        <header className="flex items-center justify-between">
-          <div className="relative flex h-[80px] w-[190px] items-center">
-            <Image
-              src="/logo.svg"
-              alt="SalesSuite logo"
-              width={190}
-              height={80}
-              priority
-              className="dark:hidden"
-            />
+    <header className="flex items-center justify-between">
+      <div className="relative flex h-[80px] w-[190px] items-center">
         <Image
-              src="/logo-dark.svg"
-              alt="SalesSuite logo dark"
-              width={190}
-              height={80}
+          src="/logo.svg"
+          alt="SalesSuite logo"
+          width={190}
+          height={80}
           priority
-              className="hidden dark:block"
-            />
-          </div>
-          <Link
-            href="/auth/signup"
-            className="rounded-full bg-zinc-800 px-10 py-3 text-[16px] font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            Sign up
-          </Link>
-        </header>
+          className="dark:hidden"
+        />
+        <Image
+          src="/logo-dark.svg"
+          alt="SalesSuite logo dark"
+          width={190}
+          height={80}
+          priority
+          className="hidden dark:block"
+        />
+      </div>
+      {hasSession === null ? (
+        <div className="h-[42px] w-[120px] animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-800" />
+      ) : (
+        <Link
+          href={hasSession ? "/dashboard" : "/auth/signup"}
+          className="rounded-full bg-zinc-800 px-10 py-3 text-[16px] font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+        >
+          {hasSession ? "Dashboard" : "Sign up"}
+        </Link>
+      )}
+    </header>
+  );
+}
+
+export default function Home() {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "SalesSuite",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Android",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "NPR",
+    },
+    description: "Field sales management platform for distributors. Verify visits with geofencing, capture leads, and process orders.",
+    url: "https://kora.vercel.app",
+    publisher: {
+      "@type": "Organization",
+      name: "Gopala Sales Management Pvt Ltd",
+    },
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <div className="relative min-h-screen bg-[#121316] text-zinc-900 dark:text-zinc-100">
+        {/* Main content — sits above the sticky footer, has rounded bottom + background */}
+        <main className="relative z-10 rounded-b-[4.5rem] bg-[#f3f2f6] pb-24 dark:bg-[#0d1117]">
+          <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-8 lg:px-12">
+          <Header />
 
         <section className="pt-16 pb-8 text-center">
           <div className="mx-auto inline-flex items-center rounded-full border border-zinc-200 bg-white/70 px-6 py-2 text-[14px] text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-800/70 dark:text-zinc-200 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: "0.1s" }}>
@@ -265,9 +311,9 @@ export default function Home() {
         {/* Contact Form Section */}
         <ScrollSection id="contact" className="mx-auto mt-20 mb-20 max-w-2xl">
           <p className="text-center text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Request a Demo</p>
-          <h2 className={`${displaySerif.className} mt-2 text-center text-4xl leading-tight`}>
+          <h3 className={`${displaySerif.className} mt-2 text-center text-4xl leading-tight`}>
             Request a demo
-          </h2>
+          </h3>
           <p className="mx-auto mt-3 max-w-xl text-center text-sm text-zinc-600 dark:text-zinc-400">
             Tell us your team size and workflow, we&apos;ll set up SalesSuite for your route.
           </p>
@@ -307,6 +353,7 @@ export default function Home() {
         </div>
       </footer>
     </div>
+    </>
   );
 }
 
