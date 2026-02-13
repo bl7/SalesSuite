@@ -10,6 +10,30 @@ const createAssignmentSchema = z.object({
   isPrimary: z.boolean().default(false),
 });
 
+export async function GET(request: NextRequest) {
+  const authResult = ensureRole(await getRequestSession(request), ["boss", "manager"]);
+  if (!authResult.ok) {
+    return authResult.response;
+  }
+
+  const db = getDb();
+  const result = await db.query(
+    `
+    SELECT
+      id,
+      shop_id,
+      rep_company_user_id,
+      is_primary
+    FROM shop_assignments
+    WHERE company_id = $1
+    ORDER BY assigned_at DESC
+    `,
+    [authResult.session.companyId]
+  );
+
+  return jsonOk({ assignments: result.rows });
+}
+
 export async function POST(request: NextRequest) {
   const authResult = ensureRole(await getRequestSession(request), ["boss", "manager"]);
   if (!authResult.ok) {

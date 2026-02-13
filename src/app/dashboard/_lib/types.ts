@@ -41,3 +41,16 @@ export type Shop = {
 export type StaffListResponse = { ok: boolean; error?: string; staff?: Staff[] };
 export type ShopListResponse = { ok: boolean; error?: string; shops?: Shop[] };
 
+export type ShopAssignment = {
+  id: string;
+  shop_id: string;
+  rep_company_user_id: string;
+  is_primary: boolean;
+};
+
+export type ShopAssignmentListResponse = {
+  ok: boolean;
+  error?: string;
+  assignments?: ShopAssignment[];
+};
+

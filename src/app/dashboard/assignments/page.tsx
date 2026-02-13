@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Staff, StaffListResponse, Shop, ShopListResponse } from "../_lib/types";
+import type {
+  Staff,
+  StaffListResponse,
+  Shop,
+  ShopListResponse,
+  ShopAssignment,
+  ShopAssignmentListResponse,
+} from "../_lib/types";
 
 export default function AssignmentsPage() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
+  const [assignments, setAssignments] = useState<ShopAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
@@ -20,32 +28,66 @@ export default function AssignmentsPage() {
   );
 
   async function loadData() {
-    const [sRes, shRes] = await Promise.all([
+    const [sRes, shRes, aRes] = await Promise.all([
       fetch("/api/manager/staff"),
       fetch("/api/manager/shops"),
+      fetch("/api/manager/shop-assignments"),
     ]);
     const sData = (await sRes.json()) as StaffListResponse;
     const shData = (await shRes.json()) as ShopListResponse;
+    const aData = (await aRes.json()) as ShopAssignmentListResponse;
     setStaff(sData.staff ?? []);
     setShops(shData.shops ?? []);
+    setAssignments(aData.assignments ?? []);
   }
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [sRes, shRes] = await Promise.all([
+      const [sRes, shRes, aRes] = await Promise.all([
         fetch("/api/manager/staff"),
         fetch("/api/manager/shops"),
+        fetch("/api/manager/shop-assignments"),
       ]);
       const sData = (await sRes.json()) as StaffListResponse;
       const shData = (await shRes.json()) as ShopListResponse;
+      const aData = (await aRes.json()) as ShopAssignmentListResponse;
       if (cancelled) return;
       setStaff(sData.staff ?? []);
       setShops(shData.shops ?? []);
+      setAssignments(aData.assignments ?? []);
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);
+
+  const repsWithShops = useMemo(
+    () =>
+      reps
+        .map((rep) => {
+          const repAssignments = assignments.filter(
+            (a) => a.rep_company_user_id === rep.company_user_id
+          );
+          const repShops = repAssignments
+            .map((a) => {
+              const shop = shops.find((s) => s.id === a.shop_id);
+              if (!shop) return null;
+              return { shop, isPrimary: a.is_primary };
+            })
+            .filter(
+              (
+                value
+              ): value is {
+                shop: Shop;
+                isPrimary: boolean;
+              } => value !== null
+            );
+
+          return { rep, shops: repShops };
+        })
+        .filter((entry) => entry.shops.length > 0),
+    [reps, shops, assignments]
+  );
 
   async function onAssign(e: React.FormEvent) {
     e.preventDefault();
@@ -122,7 +164,7 @@ export default function AssignmentsPage() {
         </form>
       </div>
 
-      {/* Shops with assignments */}
+      {/* Reps with assigned shops */}
       {loading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -131,24 +173,57 @@ export default function AssignmentsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {shops.filter((s) => s.assignment_count > 0).map((s) => (
-            <div key={s.id} className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          {repsWithShops.map((entry) => (
+            <div
+              key={entry.rep.company_user_id}
+              className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
+            >
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500 dark:text-zinc-400">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-zinc-500 dark:text-zinc-400"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M7 21v-2a4 4 0 0 1 3-3.87" />
+                    <circle cx="12" cy="7" r="4" />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{s.name}</p>
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                    {entry.rep.full_name}
+                  </p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {s.assignment_count} {s.assignment_count === 1 ? "rep assigned" : "reps assigned"}
+                    {entry.shops.length}{" "}
+                    {entry.shops.length === 1 ? "shop assigned" : "shops assigned"}
                   </p>
                 </div>
               </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {entry.shops.map(({ shop, isPrimary }) => (
+                  <span
+                    key={shop.id}
+                    className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                  >
+                    {shop.name}
+                    {isPrimary && (
+                      <span className="text-[0.7rem] font-semibold text-amber-500">
+                        Primary
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </div>
             </div>
           ))}
-          {shops.every((s) => s.assignment_count === 0) && (
+          {repsWithShops.length === 0 && (
             <div className="rounded-xl border border-zinc-200 bg-white px-5 py-10 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
               No assignments yet. Use the form above to assign shops to reps.
             </div>
