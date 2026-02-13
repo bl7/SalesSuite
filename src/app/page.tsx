@@ -2,13 +2,56 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Cormorant_Garamond } from "next/font/google";
 
 const displaySerif = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["500", "600"],
 });
+
+function useScrollAnimation() {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => {
+      if (ref.current) {
+        observer.unobserve(ref.current);
+      }
+    };
+  }, []);
+
+  return { ref, isVisible };
+}
+
+function ScrollSection({ children, className = "", id }: { children: React.ReactNode; className?: string; id?: string }) {
+  const { ref, isVisible } = useScrollAnimation();
+  return (
+    <section
+      ref={ref}
+      id={id}
+      className={`${className} transition-all duration-700 ${
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+      }`}
+    >
+      {children}
+    </section>
+  );
+}
 
 export default function Home() {
   return (
@@ -44,23 +87,24 @@ export default function Home() {
         </header>
 
         <section className="pt-16 pb-8 text-center">
-          <div className="mx-auto inline-flex items-center rounded-full border border-zinc-200 bg-white/70 px-6 py-2 text-[14px] text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-800/70 dark:text-zinc-200">
+          <div className="mx-auto inline-flex items-center rounded-full border border-zinc-200 bg-white/70 px-6 py-2 text-[14px] text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-800/70 dark:text-zinc-200 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: "0.1s" }}>
             Built for distributors and sales reps
           </div>
           <h1
-            className={`${displaySerif.className} mx-auto mt-8 max-w-[920px] text-[clamp(3.8rem,8vw,8.2rem)] leading-[0.95] tracking-[-0.02em] text-zinc-900 dark:text-zinc-100`}
+            className={`${displaySerif.className} mx-auto mt-8 max-w-[920px] text-[clamp(3.8rem,8vw,8.2rem)] leading-[0.95] tracking-[-0.02em] text-zinc-900 dark:text-zinc-100 animate-in fade-in slide-in-from-bottom-4 duration-700`}
+            style={{ animationDelay: "0.2s" }}
           >
             Field visits,
             <br />
             leads, and orders.
           </h1>
-          <p className="mx-auto mt-7 max-w-2xl text-[clamp(0.95rem,1.3vw,1.35rem)] leading-[1.5] text-zinc-600 dark:text-zinc-400">
+          <p className="mx-auto mt-7 max-w-2xl text-[clamp(0.95rem,1.3vw,1.35rem)] leading-[1.5] text-zinc-600 dark:text-zinc-400 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: "0.3s" }}>
             Kora detects shop arrivals using geofencing, logs visits with time and duration, and lets reps submit orders with totals, straight to back office.
           </p>
-          <div className="mt-8 flex items-center justify-center">
+          <div className="mt-8 flex items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: "0.4s" }}>
             <Link
               href="#contact"
-              className="rounded-full bg-zinc-800 px-11 py-3 text-[17px] font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+              className="rounded-full bg-zinc-800 px-11 py-3 text-[17px] font-medium text-white transition-all duration-300 hover:scale-105 hover:shadow-lg dark:bg-zinc-100 dark:text-zinc-900"
             >
               Request demo
             </Link>
@@ -113,7 +157,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mt-28 text-center">
+        <ScrollSection className="mt-28 text-center">
           <h2 className={`${displaySerif.className} text-4xl leading-tight sm:text-5xl`}>
             From first visit,
             <br />
@@ -128,23 +172,26 @@ export default function Home() {
               subtitle="Verified visits, automatically."
               description="Kora detects arrival using geofencing, logs time on site, and records outcomes, notes, and photos."
               footer="Less guessing, more accountability."
+              delay="0ms"
             />
             <InfoCard
               title="Leads"
               subtitle="Capture new shops in seconds."
               description="Add a lead with name, contact, location, and notes. Convert to a customer when you're ready."
+              delay="100ms"
             />
             <InfoCard
               title="Orders"
               subtitle="Fast order capture with totals."
               description="Build an order with items and quantities, see the grand total, then submit to back office in one tap."
               footer="Exports available for easy processing."
+              delay="200ms"
             />
           </div>
-        </section>
+        </ScrollSection>
 
         {/* How it works strip */}
-        <section id="how-it-works" className="mx-auto mt-16 max-w-4xl">
+        <ScrollSection id="how-it-works" className="mx-auto mt-16 max-w-4xl">
           <div className="grid grid-cols-3 gap-6 rounded-2xl border border-zinc-200 bg-white px-8 py-6 dark:border-zinc-700 dark:bg-zinc-800">
             <div className="text-center">
               <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-xl font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
@@ -168,9 +215,9 @@ export default function Home() {
           <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-zinc-600 dark:text-zinc-400">
             Tracking is configurable, Kora focuses on visit verification during working routes, not personal surveillance.
           </p>
-        </section>
+        </ScrollSection>
 
-        <section className="mt-16 rounded-[2rem] bg-white/70 px-6 py-10 text-center dark:bg-zinc-900/70">
+        <ScrollSection className="mt-16 rounded-[2rem] bg-white/70 px-6 py-10 text-center dark:bg-zinc-900/70">
           <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Coverage</p>
           <h3 className={`${displaySerif.className} mt-2 text-4xl leading-tight`}>
             Coverage and performance,
@@ -180,20 +227,20 @@ export default function Home() {
           <p className="mx-auto mt-3 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">
             See visits per rep, shops covered vs missed, new leads captured, and orders submitted, by day and territory.
           </p>
-        </section>
+        </ScrollSection>
 
-        <section className="mt-16 rounded-[2rem] bg-[#ebe8f2] px-5 py-10 dark:bg-zinc-900">
+        <ScrollSection className="mt-16 rounded-[2rem] bg-[#ebe8f2] px-5 py-10 dark:bg-zinc-900">
           <h3 className={`${displaySerif.className} text-center text-4xl leading-tight`}>
             Teams trust Kora
           </h3>
           <div className="mt-8 grid gap-3 md:grid-cols-3">
-            <QuoteCard quote="We finally have proof of visits, not just promises." author="Regional Manager, Paint Distribution" />
-            <QuoteCard quote="Lead follow-ups are cleaner because every note is logged." author="Sales Ops, FMCG" />
-            <QuoteCard quote="Orders come through with totals and item lists, no more messy calls." author="Back Office Lead, Wholesale" />
+            <QuoteCard quote="We finally have proof of visits, not just promises." author="Regional Manager, Paint Distribution" delay="0ms" />
+            <QuoteCard quote="Lead follow-ups are cleaner because every note is logged." author="Sales Ops, FMCG" delay="100ms" />
+            <QuoteCard quote="Orders come through with totals and item lists, no more messy calls." author="Back Office Lead, Wholesale" delay="200ms" />
           </div>
-        </section>
+        </ScrollSection>
 
-        <section className="mx-auto mt-16 mb-0 max-w-3xl">
+        <ScrollSection className="mx-auto mt-16 mb-0 max-w-3xl">
           <p className="text-center text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">FAQ</p>
           <h3 className={`${displaySerif.className} mt-2 text-center text-4xl leading-tight`}>
             Got questions?
@@ -213,10 +260,10 @@ export default function Home() {
               <FAQItem key={item.q} question={item.q} answer={item.a} />
             ))}
           </div>
-        </section>
+        </ScrollSection>
 
         {/* Contact Form Section */}
-        <section id="contact" className="mx-auto mt-20 mb-20 max-w-2xl">
+        <ScrollSection id="contact" className="mx-auto mt-20 mb-20 max-w-2xl">
           <p className="text-center text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Request a Demo</p>
           <h2 className={`${displaySerif.className} mt-2 text-center text-4xl leading-tight`}>
             Request a demo
@@ -225,7 +272,7 @@ export default function Home() {
             Tell us your team size and workflow, we&apos;ll set up Kora for your route.
           </p>
           <ContactForm />
-        </section>
+        </ScrollSection>
 
         </div>{/* close inner max-w-7xl wrapper */}
       </main>{/* close main — rounded-b content layer */}
@@ -260,9 +307,16 @@ export default function Home() {
   );
 }
 
-function InfoCard(props: { title: string; subtitle: string; description: string; footer?: string }) {
+function InfoCard(props: { title: string; subtitle: string; description: string; footer?: string; delay?: string }) {
+  const { ref, isVisible } = useScrollAnimation();
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm dark:border-zinc-700 dark:bg-zinc-800">
+    <div
+      ref={ref}
+      className={`rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm transition-all duration-500 hover:shadow-md hover:-translate-y-1 dark:border-zinc-700 dark:bg-zinc-800 ${
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+      }`}
+      style={{ transitionDelay: props.delay || "0ms" }}
+    >
       <p className="text-4xl font-semibold text-zinc-900 dark:text-zinc-100">{props.title}</p>
       <p className="mt-2 text-xl font-serif text-zinc-900 dark:text-zinc-100">{props.subtitle}</p>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{props.description}</p>
@@ -273,9 +327,16 @@ function InfoCard(props: { title: string; subtitle: string; description: string;
   );
 }
 
-function QuoteCard(props: { quote: string; author: string }) {
+function QuoteCard(props: { quote: string; author: string; delay?: string }) {
+  const { ref, isVisible } = useScrollAnimation();
   return (
-    <div className="rounded-xl bg-white px-4 py-4 dark:bg-zinc-800">
+    <div
+      ref={ref}
+      className={`rounded-xl bg-white px-4 py-4 transition-all duration-500 hover:shadow-md hover:-translate-y-1 dark:bg-zinc-800 ${
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+      }`}
+      style={{ transitionDelay: props.delay || "0ms" }}
+    >
       <p className="font-serif text-lg text-zinc-900 dark:text-zinc-100">&quot;{props.quote}&quot;</p>
       <p className="mt-2 text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         {props.author}
@@ -287,19 +348,19 @@ function QuoteCard(props: { quote: string; author: string }) {
 function FAQItem(props: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-2xl border border-zinc-200/80 bg-[#f7f7f8] shadow-[0_1px_0_rgba(0,0,0,0.03)] dark:border-zinc-700 dark:bg-zinc-900">
+    <div className="rounded-2xl border border-zinc-200/80 bg-[#f7f7f8] shadow-[0_1px_0_rgba(0,0,0,0.03)] transition-all duration-300 hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900">
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className={`${displaySerif.className} flex w-full items-center justify-between px-7 py-5 text-left text-[22px] text-zinc-800 dark:text-zinc-100`}
+        className={`${displaySerif.className} flex w-full items-center justify-between px-7 py-5 text-left text-[22px] text-zinc-800 dark:text-zinc-100 transition-colors hover:text-zinc-900 dark:hover:text-zinc-50`}
       >
         <span>{props.question}</span>
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[14px] text-zinc-500 transition-transform dark:bg-zinc-700 dark:text-zinc-300 ${open ? "rotate-180" : ""}`}>
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[14px] text-zinc-500 transition-all duration-300 dark:bg-zinc-700 dark:text-zinc-300 ${open ? "rotate-180" : ""}`}>
           v
         </span>
       </button>
       {open && (
-        <div className="border-t border-zinc-200/80 px-7 pb-5 pt-3 dark:border-zinc-700">
+        <div className="border-t border-zinc-200/80 px-7 pb-5 pt-3 animate-in fade-in slide-in-from-top-2 duration-300 dark:border-zinc-700">
           <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{props.answer}</p>
         </div>
       )}
