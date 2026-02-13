@@ -54,10 +54,8 @@ export default function Home() {
             <br />
             leads, and orders.
           </h1>
-          <p className="mx-auto mt-7 max-w-2xl text-[clamp(1rem,1.4vw,1.5rem)] leading-[1.4] text-zinc-500 dark:text-zinc-400">
-            Kora auto-detects shop arrivals using geofencing, logs visits with time and duration,
-            <br />
-            and lets reps capture orders with totals, then sends them to back office.
+          <p className="mx-auto mt-7 max-w-2xl text-[clamp(0.95rem,1.3vw,1.35rem)] leading-[1.5] text-zinc-600 dark:text-zinc-400">
+            Kora auto-detects shop arrivals using geofencing, logs visits with time and duration, and lets reps capture orders with totals, then sends them to back office.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3">
             <Link
@@ -74,11 +72,7 @@ export default function Home() {
             </Link>
           </div>
 
-          <p className="mx-auto mt-12 max-w-2xl text-center text-[clamp(1rem,1.5vw,1.4rem)] leading-relaxed text-zinc-600 dark:text-zinc-400">
-            Visits are verified automatically, orders are captured on the spot, managers see everything instantly.
-          </p>
-
-          <div className="relative mx-auto mt-8 h-[82vh] max-w-none overflow-visible">
+          <div className="relative mx-auto mt-12 h-[82vh] max-w-none overflow-visible">
             <div
               className="absolute left-1/2 top-[6%] z-10 h-[28vh] w-[56vw] -translate-x-1/2 rounded-[999px] blur-[72px]"
               style={{
