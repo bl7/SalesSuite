@@ -57,14 +57,15 @@ export async function POST(request: Request) {
 
     await client.query("COMMIT");
 
-    // Send verification email (fire-and-forget)
-    const baseUrl = getBaseUrl(request);
-    createToken(userId, "email_verify", 24 * 60 * 60 * 1000)
-      .then((token) => {
-        const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${token}`;
-        return sendEmailVerification(email, fullName, verifyUrl);
-      })
-      .catch((err) => console.error("[mail] Failed to send verification email:", err));
+    // Send verification email (await so it also works reliably on Vercel)
+    try {
+      const baseUrl = getBaseUrl(request);
+      const token = await createToken(userId, "email_verify", 24 * 60 * 60 * 1000);
+      const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${token}`;
+      await sendEmailVerification(email, fullName, verifyUrl);
+    } catch (err) {
+      console.error("[mail] Failed to send verification email:", err);
+    }
 
     return jsonOk(
       {

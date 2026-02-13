@@ -123,7 +123,6 @@ export async function POST(request: NextRequest) {
 
     await client.query("COMMIT");
 
-    // Send credentials email (fire-and-forget, don't block the response)
     const baseUrl = getBaseUrl(request);
     const loginUrl = `${baseUrl}/auth/login`;
 
@@ -134,18 +133,20 @@ export async function POST(request: NextRequest) {
     );
     const companyName = companyRow.rows[0]?.name ?? "your company";
 
-    // Send credentials email (fire-and-forget)
-    sendStaffCredentials(email, input.fullName, companyName, input.password, loginUrl).catch(
-      (err) => console.error("[mail] Failed to send staff credentials:", err)
-    );
+    // Send emails (await so they also work reliably on Vercel)
+    try {
+      await sendStaffCredentials(email, input.fullName, companyName, input.password, loginUrl);
+    } catch (err) {
+      console.error("[mail] Failed to send staff credentials:", err);
+    }
 
-    // Send verification email (fire-and-forget)
-    createToken(userId, "email_verify", 24 * 60 * 60 * 1000)
-      .then((token) => {
-        const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${token}`;
-        return sendEmailVerification(email, input.fullName, verifyUrl);
-      })
-      .catch((err) => console.error("[mail] Failed to send verification email:", err));
+    try {
+      const token = await createToken(userId, "email_verify", 24 * 60 * 60 * 1000);
+      const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${token}`;
+      await sendEmailVerification(email, input.fullName, verifyUrl);
+    } catch (err) {
+      console.error("[mail] Failed to send verification email:", err);
+    }
 
     return jsonOk(
       {
