@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { Shop, ShopListResponse } from "../_lib/types";
+import { useToast } from "../_lib/toast-context";
 
 export default function ShopsPage() {
+  const toast = useToast();
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
@@ -14,7 +15,7 @@ export default function ShopsPage() {
     const res = await fetch("/api/manager/shops");
     const data = (await res.json()) as ShopListResponse;
     if (!res.ok || !data.ok) {
-      setError(data.error ?? "Failed to load shops");
+      toast.error(data.error ?? "Failed to load shops");
       return;
     }
     setShops(data.shops ?? []);
@@ -27,7 +28,7 @@ export default function ShopsPage() {
       const data = (await res.json()) as ShopListResponse;
       if (cancelled) return;
       if (res.ok && data.ok) setShops(data.shops ?? []);
-      else setError(data.error ?? "Failed to load shops");
+      else toast.error(data.error ?? "Failed to load shops");
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -40,7 +41,6 @@ export default function ShopsPage() {
     geofenceRadiusM: number;
   }) {
     setWorking(true);
-    setError(null);
     const res = await fetch("/api/manager/shops", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -49,9 +49,10 @@ export default function ShopsPage() {
     const data = (await res.json()) as { ok: boolean; error?: string };
     setWorking(false);
     if (!res.ok || !data.ok) {
-      setError(data.error ?? "Could not create shop");
+      toast.error(data.error ?? "Could not create shop");
       return;
     }
+    toast.success("Shop added.");
     setShowForm(false);
     await loadShops();
   }
@@ -66,24 +67,20 @@ export default function ShopsPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          type="button"
+          onClick={() => setShowForm(true)}
           className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
-          {showForm ? "Cancel" : "+ Add Shop"}
+          + Add Shop
         </button>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800/40 dark:bg-red-900/20 dark:text-red-400">
-          {error}
-        </div>
-      )}
-
       {showForm && (
-        <div className="mb-6 rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="mb-4 text-base font-semibold text-zinc-900 dark:text-zinc-100">New Shop</h2>
-          <ShopForm disabled={working} onSubmit={onAdd} />
-        </div>
+        <AddShopModal
+          onClose={() => setShowForm(false)}
+          onSubmit={onAdd}
+          working={working}
+        />
       )}
 
       {loading ? (
@@ -146,54 +143,83 @@ export default function ShopsPage() {
   );
 }
 
-function ShopForm(props: {
-  disabled: boolean;
+const inputClass =
+  "w-full rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-500";
+
+function AddShopModal(props: {
+  onClose: () => void;
   onSubmit: (payload: {
     name: string;
     latitude: number;
     longitude: number;
     geofenceRadiusM: number;
   }) => Promise<void>;
+  working: boolean;
 }) {
   const [name, setName] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [geofenceRadiusM, setGeofenceRadiusM] = useState("60");
-
-  const inputClass =
-    "w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-zinc-400 focus:bg-white dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-500 dark:focus:bg-zinc-800";
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await props.onSubmit({
+      name,
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+      geofenceRadiusM: Number(geofenceRadiusM),
+    });
+    setName("");
+    setLatitude("");
+    setLongitude("");
+    setGeofenceRadiusM("60");
+    props.onClose();
+  }
 
   return (
-    <form
-      className="grid gap-4 sm:grid-cols-2"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        await props.onSubmit({
-          name,
-          latitude: Number(latitude),
-          longitude: Number(longitude),
-          geofenceRadiusM: Number(geofenceRadiusM),
-        });
-        setName("");
-        setLatitude("");
-        setLongitude("");
-        setGeofenceRadiusM("60");
-      }}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4"
+      onClick={props.onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-shop-title"
     >
-      <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Shop name" className={inputClass} />
-      <input required type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="Latitude" className={inputClass} />
-      <input required type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="Longitude" className={inputClass} />
-      <input required type="number" min={1} value={geofenceRadiusM} onChange={(e) => setGeofenceRadiusM(e.target.value)} placeholder="Geofence radius (m)" className={inputClass} />
-      <div className="flex items-end sm:col-span-2">
-        <button
-          disabled={props.disabled}
-          type="submit"
-          className="rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
+      <div
+        className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="add-shop-title" className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
           Add Shop
-        </button>
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Shop name</label>
+            <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Shop name" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Latitude</label>
+              <input required type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className={inputClass} placeholder="Latitude" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Longitude</label>
+              <input required type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className={inputClass} placeholder="Longitude" />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Geofence radius (m)</label>
+            <input required type="number" min={1} value={geofenceRadiusM} onChange={(e) => setGeofenceRadiusM(e.target.value)} className={inputClass} />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={props.onClose} className="rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800">
+              Cancel
+            </button>
+            <button type="submit" disabled={props.working} className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200">
+              {props.working ? "Adding…" : "Add Shop"}
+            </button>
+          </div>
+        </form>
       </div>
-    </form>
+    </div>
   );
 }
 

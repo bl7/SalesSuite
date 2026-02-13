@@ -21,11 +21,17 @@ export type Staff = {
   full_name: string;
   email: string;
   role: "boss" | "manager" | "rep" | "back_office";
-  status: "active" | "inactive";
+  status: "invited" | "active" | "inactive";
   phone: string | null;
   manager_company_user_id: string | null;
   created_at: string;
+  updated_at?: string;
+  email_verified_at?: string | null;
+  last_login_at?: string | null;
+  assigned_shops_count?: number;
 };
+
+export type StaffCounts = { active: number; invited: number; inactive: number };
 
 export type Shop = {
   id: string;
@@ -38,7 +44,12 @@ export type Shop = {
   assignment_count: number;
 };
 
-export type StaffListResponse = { ok: boolean; error?: string; staff?: Staff[] };
+export type StaffListResponse = {
+  ok: boolean;
+  error?: string;
+  staff?: Staff[];
+  counts?: StaffCounts;
+};
 export type ShopListResponse = { ok: boolean; error?: string; shops?: Shop[] };
 
 export type ShopAssignment = {

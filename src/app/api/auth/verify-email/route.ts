@@ -18,9 +18,17 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const db = getDb();
+
   // Mark email as verified
-  await getDb().query(
+  await db.query(
     `UPDATE users SET email_verified_at = NOW() WHERE id = $1 AND email_verified_at IS NULL`,
+    [userId]
+  );
+
+  // When staff verifies, set their company_users status to active so they can log in
+  await db.query(
+    `UPDATE company_users SET status = 'active' WHERE user_id = $1`,
     [userId]
   );
 

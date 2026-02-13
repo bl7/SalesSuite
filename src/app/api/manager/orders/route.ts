@@ -24,6 +24,7 @@ const createOrderSchema = z.object({
 });
 
 /* ── GET — list orders ── */
+// Query: status, q, date_from, date_to, rep (placed_by uuid), shop (shop_id uuid), sort=placed_at_asc|placed_at_desc
 
 export async function GET(request: NextRequest) {
   const authResult = ensureRole(await getRequestSession(request), ["boss", "manager", "rep", "back_office"]);
@@ -32,10 +33,54 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status")?.trim() ?? "";
   const q = searchParams.get("q")?.trim() ?? "";
+  const dateFrom = searchParams.get("date_from")?.trim() ?? "";
+  const dateTo = searchParams.get("date_to")?.trim() ?? "";
+  const repId = searchParams.get("rep")?.trim() ?? "";
+  const shopId = searchParams.get("shop")?.trim() ?? "";
+  const sort = searchParams.get("sort")?.trim() ?? "placed_at_desc";
+  const orderDir = sort === "placed_at_asc" ? "ASC" : "DESC";
 
-  // Reps can only see orders they placed
   const isRep = authResult.session.role === "rep";
-  const creatorFilter = isRep ? "AND o.placed_by_company_user_id = $4" : "";
+  const conditions: string[] = ["o.company_id = $1"];
+  const values: (string | number)[] = [authResult.session.companyId];
+  let pos = 2;
+
+  if (isRep) {
+    conditions.push(`o.placed_by_company_user_id = $${pos}`);
+    values.push(authResult.session.companyUserId);
+    pos++;
+  }
+
+  if (status) {
+    conditions.push(`o.status = $${pos}`);
+    values.push(status);
+    pos++;
+  }
+  if (q) {
+    conditions.push(`(o.order_number ILIKE $${pos} OR s.name ILIKE $${pos} OR u.full_name ILIKE $${pos})`);
+    values.push(`%${q}%`);
+    pos++;
+  }
+  if (dateFrom) {
+    conditions.push(`o.placed_at >= $${pos}::timestamptz`);
+    values.push(dateFrom);
+    pos++;
+  }
+  if (dateTo) {
+    conditions.push(`o.placed_at <= $${pos}::timestamptz`);
+    values.push(dateTo);
+    pos++;
+  }
+  if (repId) {
+    conditions.push(`o.placed_by_company_user_id = $${pos}`);
+    values.push(repId);
+    pos++;
+  }
+  if (shopId) {
+    conditions.push(`o.shop_id = $${pos}`);
+    values.push(shopId);
+    pos++;
+  }
 
   const result = await getDb().query(
     `
@@ -50,10 +95,22 @@ export async function GET(request: NextRequest) {
       o.processed_at,
       o.shipped_at,
       o.closed_at,
+      o.cancelled_at,
+      o.cancel_reason,
       o.created_at,
+      o.updated_at,
+      s.id AS shop_id,
       s.name AS shop_name,
+      s.phone AS shop_phone,
+      s.address AS shop_address,
       l.name AS lead_name,
       u.full_name AS placed_by_name,
+      cu.id AS placed_by_company_user_id,
+      (
+        SELECT COALESCE(COUNT(*), 0)::int
+        FROM order_items oi
+        WHERE oi.order_id = o.id AND oi.company_id = o.company_id
+      ) AS items_count,
       (
         SELECT json_agg(json_build_object(
           'id', oi.id,
@@ -72,16 +129,11 @@ export async function GET(request: NextRequest) {
     LEFT JOIN leads l ON l.id = o.lead_id
     LEFT JOIN company_users cu ON cu.id = o.placed_by_company_user_id AND cu.company_id = o.company_id
     LEFT JOIN users u ON u.id = cu.user_id
-    WHERE o.company_id = $1
-      AND ($2::text = '' OR o.status = $2)
-      AND ($3::text = '' OR o.order_number ILIKE '%' || $3 || '%' OR s.name ILIKE '%' || $3 || '%')
-      ${creatorFilter}
-    ORDER BY o.placed_at DESC
-    LIMIT 200
+    WHERE ${conditions.join(" AND ")}
+    ORDER BY o.placed_at ${orderDir}
+    LIMIT 500
     `,
-    isRep
-      ? [authResult.session.companyId, status, q, authResult.session.companyUserId]
-      : [authResult.session.companyId, status, q]
+    values
   );
 
   return jsonOk({ orders: result.rows });

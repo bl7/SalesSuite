@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useToast } from "../_lib/toast-context";
 
 type Lead = {
   id: string;
@@ -16,6 +17,8 @@ type Lead = {
   updated_at: string;
   shop_name: string | null;
   assigned_rep_name: string | null;
+  shop_id?: string | null;
+  assigned_rep_company_user_id?: string | null;
 };
 
 type Shop = { id: string; name: string };
@@ -35,15 +38,18 @@ const NEXT_STATUS: Record<string, string> = {
   qualified: "converted",
 };
 
+const inputClass =
+  "w-full rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-500";
+
 export default function LeadsPage() {
+  const toast = useToast();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [reps, setReps] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [filterStatus, setFilterStatus] = useState("");
   const [search, setSearch] = useState("");
 
@@ -54,7 +60,7 @@ export default function LeadsPage() {
     const res = await fetch(`/api/manager/leads?${params}`);
     const data = (await res.json()) as { ok: boolean; leads?: Lead[]; error?: string };
     if (res.ok && data.ok) setLeads(data.leads ?? []);
-    else setError(data.error ?? "Failed to load leads");
+    else toast.error(data.error ?? "Failed to load leads");
   }
 
   useEffect(() => {
@@ -70,6 +76,7 @@ export default function LeadsPage() {
       const staffData = (await staffRes.json()) as { ok: boolean; staff?: Staff[] };
       if (cancelled) return;
       if (leadsRes.ok && leadsData.ok) setLeads(leadsData.leads ?? []);
+      else toast.error((leadsData as { error?: string }).error ?? "Failed to load leads");
       setShops(shopsData.shops ?? []);
       setReps((staffData.staff ?? []).filter((s) => s.role === "rep"));
       setLoading(false);
@@ -88,7 +95,6 @@ export default function LeadsPage() {
     notes?: string;
   }) {
     setWorking(true);
-    setError(null);
     const res = await fetch("/api/manager/leads", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -96,14 +102,17 @@ export default function LeadsPage() {
     });
     const data = (await res.json()) as { ok: boolean; error?: string };
     setWorking(false);
-    if (!res.ok || !data.ok) { setError(data.error ?? "Could not create lead"); return; }
-    setShowForm(false);
+    if (!res.ok || !data.ok) {
+      toast.error(data.error ?? "Could not create lead");
+      return;
+    }
+    toast.success("Lead created.");
+    setAddModalOpen(false);
     await loadLeads();
   }
 
   async function onUpdate(leadId: string, payload: Record<string, unknown>) {
     setWorking(true);
-    setError(null);
     const res = await fetch(`/api/manager/leads/${leadId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -111,24 +120,27 @@ export default function LeadsPage() {
     });
     const data = (await res.json()) as { ok: boolean; error?: string };
     setWorking(false);
-    if (!res.ok || !data.ok) { setError(data.error ?? "Could not update lead"); return; }
-    setEditingId(null);
+    if (!res.ok || !data.ok) {
+      toast.error(data.error ?? "Could not update lead");
+      return;
+    }
+    toast.success("Lead updated.");
+    setEditingLead(null);
     await loadLeads();
   }
 
   async function onDelete(leadId: string) {
     if (!confirm("Delete this lead? This cannot be undone.")) return;
     setWorking(true);
-    setError(null);
     const res = await fetch(`/api/manager/leads/${leadId}`, { method: "DELETE" });
     const data = (await res.json()) as { ok: boolean; error?: string };
     setWorking(false);
-    if (!res.ok || !data.ok) { setError(data.error ?? "Could not delete lead"); return; }
+    if (!res.ok || !data.ok) {
+      toast.error(data.error ?? "Could not delete lead");
+      return;
+    }
+    toast.success("Lead deleted.");
     await loadLeads();
-  }
-
-  async function onStatusChange(leadId: string, newStatus: string) {
-    await onUpdate(leadId, { status: newStatus });
   }
 
   function handleFilter(status: string) {
@@ -141,7 +153,8 @@ export default function LeadsPage() {
     loadLeads(filterStatus, q);
   }
 
-  const selectClass = "rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100";
+  const selectClass =
+    "w-full rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-500";
 
   return (
     <div>
@@ -153,28 +166,35 @@ export default function LeadsPage() {
           </p>
         </div>
         <button
-          onClick={() => { setShowForm(!showForm); setEditingId(null); }}
+          type="button"
+          onClick={() => setAddModalOpen(true)}
           className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
-          {showForm ? "Cancel" : "+ New Lead"}
+          + New Lead
         </button>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800/40 dark:bg-red-900/20 dark:text-red-400">
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 font-medium underline">dismiss</button>
-        </div>
+      {addModalOpen && (
+        <AddLeadModal
+          shops={shops}
+          reps={reps}
+          working={working}
+          onClose={() => setAddModalOpen(false)}
+          onSubmit={onCreate}
+        />
       )}
 
-      {showForm && (
-        <div className="mb-6 rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="mb-4 text-base font-semibold text-zinc-900 dark:text-zinc-100">New Lead</h2>
-          <CreateLeadForm shops={shops} reps={reps} disabled={working} onSubmit={onCreate} />
-        </div>
+      {editingLead && (
+        <EditLeadModal
+          lead={editingLead}
+          shops={shops}
+          reps={reps}
+          working={working}
+          onClose={() => setEditingLead(null)}
+          onSave={(payload) => onUpdate(editingLead.id, payload)}
+        />
       )}
 
-      {/* Filters */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <select value={filterStatus} onChange={(e) => handleFilter(e.target.value)} className={selectClass}>
           <option value="">All statuses</option>
@@ -189,7 +209,7 @@ export default function LeadsPage() {
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search by name, contact, or phone…"
-          className="max-w-xs rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2 text-sm text-zinc-900 outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          className="max-w-xs rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         />
       </div>
 
@@ -215,63 +235,53 @@ export default function LeadsPage() {
             <tbody>
               {leads.map((l) => (
                 <tr key={l.id} className="border-b border-zinc-100 last:border-0 dark:border-zinc-800/60">
-                  {editingId === l.id ? (
-                    <EditRow
-                      lead={l}
-                      shops={shops}
-                      reps={reps}
-                      disabled={working}
-                      onSave={(payload) => onUpdate(l.id, payload)}
-                      onCancel={() => setEditingId(null)}
-                    />
-                  ) : (
-                    <>
-                      <td className="px-5 py-3.5">
-                        <p className="font-medium text-zinc-900 dark:text-zinc-100">{l.name}</p>
-                        {l.contact_name && (
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">{l.contact_name}</p>
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">
-                        {l.phone && <p className="text-xs">{l.phone}</p>}
-                        {l.email && <p className="text-xs">{l.email}</p>}
-                        {!l.phone && !l.email && <span className="text-xs">—</span>}
-                      </td>
-                      <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{l.shop_name ?? "—"}</td>
-                      <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{l.assigned_rep_name ?? "—"}</td>
-                      <td className="px-5 py-3.5">
-                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_COLORS[l.status] ?? ""}`}>
-                          {l.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {NEXT_STATUS[l.status] && (
-                            <button
-                              onClick={() => onStatusChange(l.id, NEXT_STATUS[l.status])}
-                              disabled={working}
-                              className="rounded-md border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                            >
-                              → {NEXT_STATUS[l.status]}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => { setEditingId(l.id); setShowForm(false); }}
-                            className="rounded-md border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => onDelete(l.id)}
-                            disabled={working}
-                            className="rounded-md border border-red-200 px-3 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-800/40 dark:text-red-400 dark:hover:bg-red-900/20"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </>
-                  )}
+                  <td className="px-5 py-3.5">
+                    <p className="font-medium text-zinc-900 dark:text-zinc-100">{l.name}</p>
+                    {l.contact_name && (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">{l.contact_name}</p>
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">
+                    {l.phone && <p className="text-xs">{l.phone}</p>}
+                    {l.email && <p className="text-xs">{l.email}</p>}
+                    {!l.phone && !l.email && <span className="text-xs">—</span>}
+                  </td>
+                  <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{l.shop_name ?? "—"}</td>
+                  <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{l.assigned_rep_name ?? "—"}</td>
+                  <td className="px-5 py-3.5">
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_COLORS[l.status] ?? ""}`}>
+                      {l.status}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {NEXT_STATUS[l.status] && (
+                        <button
+                          type="button"
+                          onClick={() => onUpdate(l.id, { status: NEXT_STATUS[l.status] })}
+                          disabled={working}
+                          className="rounded-md border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        >
+                          → {NEXT_STATUS[l.status]}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEditingLead(l)}
+                        className="rounded-md border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(l.id)}
+                        disabled={working}
+                        className="rounded-md border border-red-200 px-3 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-800/40 dark:text-red-400 dark:hover:bg-red-900/20"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -287,12 +297,37 @@ export default function LeadsPage() {
   );
 }
 
-/* ── Create lead form ── */
+function ModalShell(props: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4"
+      onClick={props.onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div
+        className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="modal-title" className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+          {props.title}
+        </h2>
+        {props.children}
+      </div>
+    </div>
+  );
+}
 
-function CreateLeadForm(props: {
+function AddLeadModal(props: {
   shops: Shop[];
   reps: Staff[];
-  disabled: boolean;
+  working: boolean;
+  onClose: () => void;
   onSubmit: (payload: {
     shopId?: string;
     name: string;
@@ -313,138 +348,194 @@ function CreateLeadForm(props: {
   const [assignedRepId, setAssignedRepId] = useState("");
   const [notes, setNotes] = useState("");
 
-  const inputClass =
-    "w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-zinc-400 focus:bg-white dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-500 dark:focus:bg-zinc-800";
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await props.onSubmit({
+      shopId: shopId || undefined,
+      name,
+      contactName: contactName || undefined,
+      phone: phone || undefined,
+      email: email || undefined,
+      address: address || undefined,
+      assignedRepCompanyUserId: assignedRepId || undefined,
+      notes: notes || undefined,
+    });
+    setShopId("");
+    setName("");
+    setContactName("");
+    setPhone("");
+    setEmail("");
+    setAddress("");
+    setAssignedRepId("");
+    setNotes("");
+    props.onClose();
+  }
 
   return (
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        await props.onSubmit({
-          shopId: shopId || undefined,
-          name,
-          contactName: contactName || undefined,
-          phone: phone || undefined,
-          email: email || undefined,
-          address: address || undefined,
-          assignedRepCompanyUserId: assignedRepId || undefined,
-          notes: notes || undefined,
-        });
-        setShopId("");
-        setName("");
-        setContactName("");
-        setPhone("");
-        setEmail("");
-        setAddress("");
-        setAssignedRepId("");
-        setNotes("");
-      }}
-      className="grid gap-4 sm:grid-cols-2"
-    >
-      <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Lead name" className={inputClass} />
-      <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Contact name (optional)" className={inputClass} />
-      <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone (optional)" className={inputClass} />
-      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email (optional)" className={inputClass} />
-      <select value={shopId} onChange={(e) => setShopId(e.target.value)} className={inputClass}>
-        <option value="">Select shop (optional)</option>
-        {props.shops.map((s) => (
-          <option key={s.id} value={s.id}>{s.name}</option>
-        ))}
-      </select>
-      <select value={assignedRepId} onChange={(e) => setAssignedRepId(e.target.value)} className={inputClass}>
-        <option value="">Assign to rep (optional)</option>
-        {props.reps.map((r) => (
-          <option key={r.company_user_id} value={r.company_user_id}>{r.full_name}</option>
-        ))}
-      </select>
-      <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address (optional)" className={`${inputClass} sm:col-span-2`} />
-      <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" rows={3} className={`${inputClass} sm:col-span-2`} />
-      <div className="flex items-end sm:col-span-2">
-        <button
-          disabled={props.disabled}
-          type="submit"
-          className="rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          Create Lead
-        </button>
-      </div>
-    </form>
+    <ModalShell title="New Lead" onClose={props.onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Lead name</label>
+            <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Lead name" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Contact name</label>
+            <input value={contactName} onChange={(e) => setContactName(e.target.value)} className={inputClass} placeholder="Optional" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Phone</label>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} placeholder="Optional" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Email</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="Optional" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Shop</label>
+            <select value={shopId} onChange={(e) => setShopId(e.target.value)} className={inputClass}>
+              <option value="">Select shop (optional)</option>
+              {props.shops.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Assign to rep</label>
+            <select value={assignedRepId} onChange={(e) => setAssignedRepId(e.target.value)} className={inputClass}>
+              <option value="">Optional</option>
+              {props.reps.map((r) => (
+                <option key={r.company_user_id} value={r.company_user_id}>{r.full_name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Address</label>
+          <input value={address} onChange={(e) => setAddress(e.target.value)} className={inputClass} placeholder="Optional" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Notes</label>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={inputClass} placeholder="Optional" />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={props.onClose} className="rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800">
+            Cancel
+          </button>
+          <button type="submit" disabled={props.working} className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200">
+            {props.working ? "Creating…" : "Create Lead"}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
   );
 }
 
-/* ── Edit row ── */
-
-function EditRow(props: {
+function EditLeadModal(props: {
   lead: Lead;
   shops: Shop[];
   reps: Staff[];
-  disabled: boolean;
+  working: boolean;
+  onClose: () => void;
   onSave: (payload: Record<string, unknown>) => Promise<void>;
-  onCancel: () => void;
 }) {
-  const { lead: l } = props;
+  const l = props.lead;
   const [name, setName] = useState(l.name);
   const [contactName, setContactName] = useState(l.contact_name ?? "");
   const [phone, setPhone] = useState(l.phone ?? "");
   const [email, setEmail] = useState(l.email ?? "");
   const [address, setAddress] = useState(l.address ?? "");
   const [status, setStatus] = useState(l.status);
-  const [shopId, setShopId] = useState(l.shop_name ? props.shops.find((s) => s.name === l.shop_name)?.id ?? "" : "");
+  const [shopId, setShopId] = useState(
+    l.shop_id ?? (l.shop_name ? (props.shops.find((s) => s.name === l.shop_name)?.id ?? "") : "")
+  );
   const [assignedRepId, setAssignedRepId] = useState(
-    l.assigned_rep_name ? props.reps.find((r) => r.full_name === l.assigned_rep_name)?.company_user_id ?? "" : ""
+    l.assigned_rep_company_user_id ?? (l.assigned_rep_name ? (props.reps.find((r) => r.full_name === l.assigned_rep_name)?.company_user_id ?? "") : "")
   );
   const [notes, setNotes] = useState(l.notes ?? "");
 
-  const inputClass =
-    "w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await props.onSave({
+      name,
+      contactName: contactName || null,
+      phone: phone || null,
+      email: email || null,
+      address: address || null,
+      shopId: shopId || null,
+      assignedRepCompanyUserId: assignedRepId || null,
+      status,
+      notes: notes || null,
+    });
+    props.onClose();
+  }
 
   return (
-    <>
-      <td className="px-5 py-2.5" colSpan={6}>
-        <div className="grid grid-cols-2 gap-2">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className={inputClass} />
-          <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Contact name" className={inputClass} />
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className={inputClass} />
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className={inputClass} />
-          <select value={shopId} onChange={(e) => setShopId(e.target.value)} className={inputClass}>
-            <option value="">No shop</option>
-            {props.shops.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-          <select value={assignedRepId} onChange={(e) => setAssignedRepId(e.target.value)} className={inputClass}>
-            <option value="">No rep</option>
-            {props.reps.map((r) => (
-              <option key={r.company_user_id} value={r.company_user_id}>{r.full_name}</option>
-            ))}
-          </select>
-          <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address" className={inputClass} />
-          <select value={status} onChange={(e) => setStatus(e.target.value as Lead["status"])} className={inputClass}>
-            <option value="new">New</option>
-            <option value="contacted">Contacted</option>
-            <option value="qualified">Qualified</option>
-            <option value="converted">Converted</option>
-            <option value="lost">Lost</option>
-          </select>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" rows={2} className={`${inputClass} col-span-2`} />
-          <div className="col-span-2 flex items-center justify-end gap-2">
-            <button
-              onClick={() => props.onSave({ name, contactName: contactName || null, phone: phone || null, email: email || null, address: address || null, shopId: shopId || null, assignedRepCompanyUserId: assignedRepId || null, status, notes: notes || null })}
-              disabled={props.disabled}
-              className="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
-            >
-              Save
-            </button>
-            <button
-              onClick={props.onCancel}
-              className="rounded-md border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:text-zinc-400"
-            >
-              Cancel
-            </button>
+    <ModalShell title="Edit Lead" onClose={props.onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Name</label>
+            <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Contact name</label>
+            <input value={contactName} onChange={(e) => setContactName(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Phone</label>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Email</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Shop</label>
+            <select value={shopId} onChange={(e) => setShopId(e.target.value)} className={inputClass}>
+              <option value="">No shop</option>
+              {props.shops.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Assigned rep</label>
+            <select value={assignedRepId} onChange={(e) => setAssignedRepId(e.target.value)} className={inputClass}>
+              <option value="">No rep</option>
+              {props.reps.map((r) => (
+                <option key={r.company_user_id} value={r.company_user_id}>{r.full_name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value as Lead["status"])} className={inputClass}>
+              <option value="new">New</option>
+              <option value="contacted">Contacted</option>
+              <option value="qualified">Qualified</option>
+              <option value="converted">Converted</option>
+              <option value="lost">Lost</option>
+            </select>
           </div>
         </div>
-      </td>
-    </>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Address</label>
+          <input value={address} onChange={(e) => setAddress(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Notes</label>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputClass} />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={props.onClose} className="rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800">
+            Cancel
+          </button>
+          <button type="submit" disabled={props.working} className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200">
+            {props.working ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
   );
 }
-

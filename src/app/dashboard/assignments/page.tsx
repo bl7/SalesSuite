@@ -9,18 +9,16 @@ import type {
   ShopAssignment,
   ShopAssignmentListResponse,
 } from "../_lib/types";
+import { useToast } from "../_lib/toast-context";
 
 export default function AssignmentsPage() {
+  const toast = useToast();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [assignments, setAssignments] = useState<ShopAssignment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
-
-  const [shopId, setShopId] = useState("");
-  const [repCompanyUserId, setRepCompanyUserId] = useState("");
-  const [isPrimary, setIsPrimary] = useState(true);
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   const reps = useMemo(
     () => staff.filter((s) => s.role === "rep" && s.status === "active"),
@@ -53,9 +51,12 @@ export default function AssignmentsPage() {
       const shData = (await shRes.json()) as ShopListResponse;
       const aData = (await aRes.json()) as ShopAssignmentListResponse;
       if (cancelled) return;
-      setStaff(sData.staff ?? []);
-      setShops(shData.shops ?? []);
-      setAssignments(aData.assignments ?? []);
+      if (sRes.ok && sData.ok) setStaff(sData.staff ?? []);
+      else toast.error(sData.error ?? "Failed to load staff");
+      if (shRes.ok && shData.ok) setShops(shData.shops ?? []);
+      else toast.error(shData.error ?? "Failed to load shops");
+      if (aRes.ok && aData.ok) setAssignments(aData.assignments ?? []);
+      else toast.error(aData.error ?? "Failed to load assignments");
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -89,80 +90,51 @@ export default function AssignmentsPage() {
     [reps, shops, assignments]
   );
 
-  async function onAssign(e: React.FormEvent) {
-    e.preventDefault();
-    if (!shopId || !repCompanyUserId) return;
+  async function onAssign(payload: { shopId: string; repCompanyUserId: string; isPrimary: boolean }) {
     setWorking(true);
-    setError(null);
     const res = await fetch("/api/manager/shop-assignments", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ shopId, repCompanyUserId, isPrimary }),
+      body: JSON.stringify(payload),
     });
     const data = (await res.json()) as { ok: boolean; error?: string };
     setWorking(false);
     if (!res.ok || !data.ok) {
-      setError(data.error ?? "Could not assign shop");
+      toast.error(data.error ?? "Could not assign shop");
       return;
     }
-    setShopId("");
-    setRepCompanyUserId("");
-    setIsPrimary(true);
+    toast.success("Shop assigned to rep.");
+    setAddModalOpen(false);
     await loadData();
   }
 
-  const selectClass =
-    "w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-zinc-400 focus:bg-white dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-zinc-500 dark:focus:bg-zinc-800";
-
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Assignments</h1>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          Assign shops to reps for visit tracking and order capture.
-        </p>
-      </div>
-
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800/40 dark:bg-red-900/20 dark:text-red-400">
-          {error}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Assignments</h1>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            Assign shops to reps for visit tracking and order capture.
+          </p>
         </div>
-      )}
-
-      {/* Assignment form */}
-      <div className="mb-8 rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-4 text-base font-semibold text-zinc-900 dark:text-zinc-100">New Assignment</h2>
-        <form onSubmit={onAssign} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <select required value={shopId} onChange={(e) => setShopId(e.target.value)} className={selectClass}>
-            <option value="">Select Shop</option>
-            {shops.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-          <select required value={repCompanyUserId} onChange={(e) => setRepCompanyUserId(e.target.value)} className={selectClass}>
-            <option value="">Select Rep</option>
-            {reps.map((r) => (
-              <option key={r.company_user_id} value={r.company_user_id}>{r.full_name}</option>
-            ))}
-          </select>
-          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            <input
-              type="checkbox"
-              checked={isPrimary}
-              onChange={(e) => setIsPrimary(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
-            />
-            Primary
-          </label>
-          <button
-            disabled={working || loading}
-            type="submit"
-            className="rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            Assign
-          </button>
-        </form>
+        <button
+          type="button"
+          onClick={() => setAddModalOpen(true)}
+          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        >
+          + Add assignment
+        </button>
       </div>
+
+      {addModalOpen && (
+        <AddAssignmentModal
+          shops={shops}
+          reps={reps}
+          working={working}
+          onClose={() => setAddModalOpen(false)}
+          onSubmit={onAssign}
+        />
+      )}
 
       {/* Reps with assigned shops */}
       {loading ? (
@@ -225,11 +197,92 @@ export default function AssignmentsPage() {
           ))}
           {repsWithShops.length === 0 && (
             <div className="rounded-xl border border-zinc-200 bg-white px-5 py-10 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
-              No assignments yet. Use the form above to assign shops to reps.
+              No assignments yet. Click &quot;+ Add assignment&quot; to get started.
             </div>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+const inputClass =
+  "w-full rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition-colors focus:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-500";
+
+function AddAssignmentModal(props: {
+  shops: Shop[];
+  reps: Staff[];
+  working: boolean;
+  onClose: () => void;
+  onSubmit: (payload: { shopId: string; repCompanyUserId: string; isPrimary: boolean }) => Promise<void>;
+}) {
+  const [shopId, setShopId] = useState("");
+  const [repCompanyUserId, setRepCompanyUserId] = useState("");
+  const [isPrimary, setIsPrimary] = useState(true);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!shopId || !repCompanyUserId) return;
+    await props.onSubmit({ shopId, repCompanyUserId, isPrimary });
+    setShopId("");
+    setRepCompanyUserId("");
+    setIsPrimary(true);
+    props.onClose();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4"
+      onClick={props.onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-assignment-title"
+    >
+      <div
+        className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="add-assignment-title" className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+          Add assignment
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Shop</label>
+            <select required value={shopId} onChange={(e) => setShopId(e.target.value)} className={inputClass}>
+              <option value="">Select shop</option>
+              {props.shops.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Rep</label>
+            <select required value={repCompanyUserId} onChange={(e) => setRepCompanyUserId(e.target.value)} className={inputClass}>
+              <option value="">Select rep</option>
+              {props.reps.map((r) => (
+                <option key={r.company_user_id} value={r.company_user_id}>{r.full_name}</option>
+              ))}
+            </select>
+          </div>
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={isPrimary}
+              onChange={(e) => setIsPrimary(e.target.checked)}
+              className="h-4 w-4 rounded border-zinc-300 accent-zinc-900 dark:accent-zinc-100"
+            />
+            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Primary rep for this shop</span>
+          </label>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={props.onClose} className="rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800">
+              Cancel
+            </button>
+            <button type="submit" disabled={props.working} className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200">
+              {props.working ? "Assigning…" : "Assign"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

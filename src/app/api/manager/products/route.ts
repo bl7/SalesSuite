@@ -11,6 +11,7 @@ const createProductSchema = z.object({
   unit: z.string().min(1).max(30).default("unit"),
   price: z.number().nonnegative().optional(),
   currencyCode: z.string().length(3).default("NPR"),
+  status: z.enum(["active", "inactive"]).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -19,6 +20,9 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim() ?? "";
+  const statusParam = searchParams.get("status")?.toLowerCase();
+  const statusFilter =
+    statusParam === "inactive" ? false : statusParam === "active" ? true : null;
 
   const result = await getDb().query(
     `
@@ -51,13 +55,19 @@ export async function GET(request: NextRequest) {
           AND (pp.ends_at IS NULL OR pp.ends_at > NOW())
         ORDER BY pp.starts_at DESC
         LIMIT 1
-      ) AS currency_code
+      ) AS currency_code,
+      (
+        SELECT COUNT(DISTINCT oi.order_id)::int
+        FROM order_items oi
+        WHERE oi.company_id = p.company_id AND oi.product_id = p.id
+      ) AS order_count
     FROM products p
     WHERE p.company_id = $1
       AND ($2::text = '' OR p.name ILIKE '%' || $2 || '%' OR p.sku ILIKE '%' || $2 || '%')
+      AND ($3::boolean IS NULL OR p.is_active = $3)
     ORDER BY p.created_at DESC
     `,
-    [authResult.session.companyId, q]
+    [authResult.session.companyId, q, statusFilter]
   );
 
   return jsonOk({ products: result.rows });
@@ -77,10 +87,11 @@ export async function POST(request: NextRequest) {
 
   try {
     // Insert product
+    const isActive = input.status !== "inactive";
     const productResult = await db.query(
       `
-      INSERT INTO products (company_id, sku, name, description, unit)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO products (company_id, sku, name, description, unit, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
       `,
       [
@@ -89,6 +100,7 @@ export async function POST(request: NextRequest) {
         input.name,
         input.description ?? null,
         input.unit,
+        isActive,
       ]
     );
 

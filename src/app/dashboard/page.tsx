@@ -9,7 +9,7 @@ import type { Staff, StaffListResponse, Shop, ShopListResponse } from "./_lib/ty
 type Order = {
   id: string;
   order_number: string;
-  status: "received" | "processing" | "shipped" | "closed";
+  status: "received" | "processing" | "shipped" | "closed" | "cancelled";
   total_amount: string;
   currency_code: string;
   placed_at: string;
@@ -74,6 +74,7 @@ export default function OverviewPage() {
   const ordersProcessing = orders.filter((o) => o.status === "processing").length;
   const ordersShipped = orders.filter((o) => o.status === "shipped").length;
   const ordersClosed = orders.filter((o) => o.status === "closed").length;
+  const ordersCancelled = orders.filter((o) => o.status === "cancelled").length;
   const recentOrders = orders.slice(0, 5);
 
   // Staff performance stats
@@ -227,6 +228,7 @@ export default function OverviewPage() {
                         o.status === "received" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
                         o.status === "processing" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
                         o.status === "shipped" ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400" :
+                        o.status === "cancelled" ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
                         "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                       }`}>
                         {o.status}
@@ -248,7 +250,7 @@ export default function OverviewPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Order Status Breakdown
           </h2>
-          <div className="mt-4 grid grid-cols-4 gap-4">
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
             <div className="text-center">
               <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{ordersReceived}</p>
               <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Received</p>
@@ -264,6 +266,10 @@ export default function OverviewPage() {
             <div className="text-center">
               <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{ordersClosed}</p>
               <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Closed</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{ordersCancelled}</p>
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Cancelled</p>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { type PoolClient } from "pg";
+import { randomBytes } from "crypto";
 import { z } from "zod";
 
 import { hashPassword } from "@/lib/auth";
@@ -11,13 +12,28 @@ import { getBaseUrl } from "@/lib/url";
 
 const createStaffSchema = z.object({
   fullName: z.string().min(2).max(120),
-  email: z.email().max(255),
-  password: z.string().min(8).max(128),
+  email: z.string().email().max(255),
+  phone: z.string().min(10).max(20),
   role: z.enum(["manager", "rep", "back_office"]).default("rep"),
-  status: z.enum(["active", "inactive"]).default("active"),
-  phone: z.string().regex(/^\+977\d{10}$/, "Phone must be in +977XXXXXXXXXX format"),
   managerCompanyUserId: z.uuid().optional(),
 });
+
+/** Normalize phone to +977XXXXXXXXXX for storage; allow digits and optional +977 prefix. */
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10 && !phone.startsWith("+")) return `+977${digits}`;
+  if (digits.length === 13 && digits.startsWith("977")) return `+${digits}`;
+  if (digits.length >= 10) return `+977${digits.slice(-10)}`;
+  return `+977${digits.padStart(10, "0")}`;
+}
+
+function generateRandomPassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = randomBytes(16);
+  let s = "";
+  for (let i = 0; i < 16; i++) s += chars[bytes[i]! % chars.length];
+  return s;
+}
 
 type StaffRow = {
   company_user_id: string;
@@ -25,22 +41,44 @@ type StaffRow = {
   full_name: string;
   email: string;
   role: "boss" | "manager" | "rep" | "back_office";
-  status: "active" | "inactive";
+  status: "invited" | "active" | "inactive";
   phone: string | null;
   manager_company_user_id: string | null;
   created_at: string;
+  updated_at: string;
+  email_verified_at: string | null;
+  last_login_at: string | null;
+  assigned_shops_count: number;
 };
 
 export async function GET(request: NextRequest) {
-  const authResult = ensureRole(await getRequestSession(request), ["boss", "manager"]);
-  if (!authResult.ok) {
-    return authResult.response;
-  }
+  const authResult = ensureRole(await getRequestSession(request), [
+    "boss",
+    "manager",
+    "back_office",
+  ]);
+  if (!authResult.ok) return authResult.response;
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim() ?? "";
+  const statusParam = searchParams.get("status")?.toLowerCase();
+  const roleParam = searchParams.get("role")?.trim().toLowerCase();
 
-  const result = await getDb().query<StaffRow>(
+  const statusFilter =
+    statusParam === "invited" || statusParam === "active" || statusParam === "inactive"
+      ? statusParam
+      : null;
+  const roleFilter =
+    roleParam === "rep" ||
+    roleParam === "manager" ||
+    roleParam === "back_office" ||
+    roleParam === "boss"
+      ? roleParam
+      : null;
+
+  const db = getDb();
+
+  const result = await db.query<StaffRow>(
     `
     SELECT
       cu.id AS company_user_id,
@@ -51,53 +89,94 @@ export async function GET(request: NextRequest) {
       cu.status,
       cu.phone,
       cu.manager_company_user_id,
-      cu.created_at
+      cu.created_at,
+      cu.updated_at,
+      u.email_verified_at::text,
+      u.last_login_at::text,
+      (
+        SELECT COUNT(*)::int
+        FROM shop_assignments sa
+        WHERE sa.company_id = cu.company_id
+          AND sa.rep_company_user_id = cu.id
+      ) AS assigned_shops_count
     FROM company_users cu
     JOIN users u ON u.id = cu.user_id
     WHERE cu.company_id = $1
-      AND ($2::text = '' OR u.full_name ILIKE '%' || $2 || '%' OR u.email ILIKE '%' || $2 || '%')
+      AND ($2::text = '' OR u.full_name ILIKE '%' || $2 || '%' OR u.email ILIKE '%' || $2 || '%' OR cu.phone ILIKE '%' || $2 || '%')
+      AND ($3::text IS NULL OR cu.status = $3)
+      AND ($4::text IS NULL OR cu.role = $4)
     ORDER BY cu.created_at DESC
     `,
-    [authResult.session.companyId, q]
+    [authResult.session.companyId, q, statusFilter, roleFilter]
   );
 
-  return jsonOk({ staff: result.rows });
+  const countsResult = await db.query<{ status: string; count: string }>(
+    `
+    SELECT cu.status, COUNT(*)::text AS count
+    FROM company_users cu
+    WHERE cu.company_id = $1
+    GROUP BY cu.status
+    `,
+    [authResult.session.companyId]
+  );
+
+  const counts = { active: 0, invited: 0, inactive: 0 };
+  for (const row of countsResult.rows) {
+    if (row.status in counts) counts[row.status as keyof typeof counts] = parseInt(row.count, 10);
+  }
+
+  return jsonOk({ staff: result.rows, counts });
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = ensureRole(await getRequestSession(request), ["boss", "manager"]);
-  if (!authResult.ok) {
-    return authResult.response;
-  }
+  const authResult = ensureRole(await getRequestSession(request), [
+    "boss",
+    "manager",
+  ]);
+  if (!authResult.ok) return authResult.response;
 
   const parseResult = createStaffSchema.safeParse(await request.json());
   if (!parseResult.success) {
-    return jsonError(400, parseResult.error.issues[0]?.message ?? "Invalid body");
+    return jsonError(
+      400,
+      parseResult.error.issues[0]?.message ?? "Invalid body"
+    );
   }
 
   const input = parseResult.data;
   const email = input.email.toLowerCase().trim();
+  const phone = normalizePhone(input.phone);
+  if (!/^\+977\d{10}$/.test(phone)) {
+    return jsonError(400, "Phone must be 10 digits or +977 followed by 10 digits");
+  }
+
   const db = getDb();
   const client = await db.connect();
+  const password = generateRandomPassword();
+  const passwordHash = await hashPassword(password);
 
   try {
     await client.query("BEGIN");
 
     if (input.managerCompanyUserId) {
-      await ensureManagerExists(client, authResult.session.companyId, input.managerCompanyUserId);
+      await ensureManagerExists(
+        client,
+        authResult.session.companyId,
+        input.managerCompanyUserId
+      );
     }
 
     const userId = await findOrCreateUser(
       client,
       email,
       input.fullName,
-      await hashPassword(input.password)
+      passwordHash
     );
 
     const companyUser = await client.query<{
       id: string;
       role: "manager" | "rep" | "back_office";
-      status: "active" | "inactive";
+      status: string;
     }>(
       `
       INSERT INTO company_users (
@@ -108,15 +187,14 @@ export async function POST(request: NextRequest) {
         phone,
         manager_company_user_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, 'invited', $4, $5)
       RETURNING id, role, status
       `,
       [
         authResult.session.companyId,
         userId,
         input.role,
-        input.status,
-        input.phone,
+        phone,
         input.managerCompanyUserId ?? null,
       ]
     );
@@ -126,22 +204,30 @@ export async function POST(request: NextRequest) {
     const baseUrl = getBaseUrl(request);
     const loginUrl = `${baseUrl}/auth/login`;
 
-    // Look up company name for the email
     const companyRow = await db.query<{ name: string }>(
       `SELECT name FROM companies WHERE id = $1`,
       [authResult.session.companyId]
     );
     const companyName = companyRow.rows[0]?.name ?? "your company";
 
-    // Send emails (await so they also work reliably on Vercel)
     try {
-      await sendStaffCredentials(email, input.fullName, companyName, input.password, loginUrl);
+      await sendStaffCredentials(
+        email,
+        input.fullName,
+        companyName,
+        password,
+        loginUrl
+      );
     } catch (err) {
       console.error("[mail] Failed to send staff credentials:", err);
     }
 
     try {
-      const token = await createToken(userId, "email_verify", 24 * 60 * 60 * 1000);
+      const token = await createToken(
+        userId,
+        "email_verify",
+        24 * 60 * 60 * 1000
+      );
       const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${token}`;
       await sendEmailVerification(email, input.fullName, verifyUrl);
     } catch (err) {
@@ -151,12 +237,12 @@ export async function POST(request: NextRequest) {
     return jsonOk(
       {
         staff: {
-          companyUserId: companyUser.rows[0].id,
-          userId,
+          company_user_id: companyUser.rows[0].id,
+          user_id: userId,
           email,
-          fullName: input.fullName,
+          full_name: input.fullName,
           role: companyUser.rows[0].role,
-          status: companyUser.rows[0].status,
+          status: "invited",
         },
       },
       201
@@ -165,7 +251,7 @@ export async function POST(request: NextRequest) {
     await client.query("ROLLBACK");
 
     if (isUniqueViolation(error)) {
-      return jsonError(409, "Staff user already exists in this company");
+      return jsonError(409, "A staff member with this email already exists");
     }
 
     return jsonError(
@@ -206,16 +292,15 @@ async function findOrCreateUser(
   passwordHash: string
 ) {
   const existingUser = await client.query<{ id: string }>(
-    `
-    SELECT id
-    FROM users
-    WHERE email = $1
-    LIMIT 1
-    `,
+    `SELECT id FROM users WHERE email = $1 LIMIT 1`,
     [email]
   );
 
   if (existingUser.rowCount) {
+    await client.query(
+      `UPDATE users SET full_name = $1, password_hash = $2 WHERE id = $3`,
+      [fullName, passwordHash, existingUser.rows[0].id]
+    );
     return existingUser.rows[0].id;
   }
 
@@ -232,6 +317,10 @@ async function findOrCreateUser(
 }
 
 function isUniqueViolation(error: unknown) {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: string }).code === "23505"
+  );
 }
-

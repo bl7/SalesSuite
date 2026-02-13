@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { SessionProvider, useSession } from "./_lib/session-context";
+import { ToastProvider } from "./_lib/toast-context";
 
 const navItems = [
   { label: "Overview", href: "/dashboard", icon: GridIcon },
@@ -18,7 +19,9 @@ const navItems = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <DashboardShell>{children}</DashboardShell>
+      <ToastProvider>
+        <DashboardShell>{children}</DashboardShell>
+      </ToastProvider>
     </SessionProvider>
   );
 }

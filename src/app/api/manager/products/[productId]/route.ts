@@ -10,6 +10,7 @@ const updateProductSchema = z.object({
   description: z.string().max(2000).nullable().optional(),
   unit: z.string().min(1).max(30).optional(),
   isActive: z.boolean().optional(),
+  status: z.enum(["active", "inactive"]).optional(),
 });
 
 /* ── GET single product with price history ── */
@@ -66,7 +67,8 @@ export async function PATCH(
   if (input.name !== undefined) { updates.push(`name = $${pos}`); values.push(input.name); pos++; }
   if (input.description !== undefined) { updates.push(`description = $${pos}`); values.push(input.description); pos++; }
   if (input.unit !== undefined) { updates.push(`unit = $${pos}`); values.push(input.unit); pos++; }
-  if (input.isActive !== undefined) { updates.push(`is_active = $${pos}`); values.push(input.isActive); pos++; }
+  const isActiveValue = input.isActive ?? (input.status === "inactive" ? false : input.status === "active" ? true : undefined);
+  if (isActiveValue !== undefined) { updates.push(`is_active = $${pos}`); values.push(isActiveValue); pos++; }
 
   if (!updates.length) return jsonError(400, "No fields provided to update");
 
@@ -89,7 +91,7 @@ export async function PATCH(
   }
 }
 
-/* ── DELETE product ── */
+/* ── DELETE product (only when order_count = 0) ── */
 
 export async function DELETE(
   request: NextRequest,
@@ -99,8 +101,18 @@ export async function DELETE(
   if (!authResult.ok) return authResult.response;
 
   const { productId } = await context.params;
+  const db = getDb();
 
-  const result = await getDb().query(
+  const countResult = await db.query(
+    `SELECT COUNT(DISTINCT order_id)::int AS cnt FROM order_items WHERE company_id = $1 AND product_id = $2`,
+    [authResult.session.companyId, productId]
+  );
+  const orderCount = Number(countResult.rows[0]?.cnt ?? 0);
+  if (orderCount > 0) {
+    return jsonError(400, "Cannot delete products used in orders");
+  }
+
+  const result = await db.query(
     `DELETE FROM products WHERE id = $1 AND company_id = $2 RETURNING id`,
     [productId, authResult.session.companyId]
   );
