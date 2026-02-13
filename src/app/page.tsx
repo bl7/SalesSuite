@@ -126,10 +126,10 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <div className="relative min-h-screen bg-[#121316] text-zinc-900 dark:text-zinc-100">
+      <div className="relative min-h-screen overflow-x-hidden bg-[#121316] text-zinc-900 dark:text-zinc-100">
         {/* Main content — sits above the sticky footer, has rounded bottom + background */}
-        <main className="relative z-10 rounded-b-[4.5rem] bg-[#f3f2f6] pb-24 dark:bg-[#0d1117]">
-          <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-8 lg:px-12">
+        <main className="relative z-10 overflow-x-hidden rounded-b-[4.5rem] bg-[#f3f2f6] pb-24 dark:bg-[#0d1117]">
+          <div className="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-8 lg:px-12">
           <Header />
 
         <section className="pt-16 pb-8 text-center">
@@ -156,50 +156,52 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="relative mx-auto mt-12 h-[82vh] max-w-none overflow-visible">
-            <div
-              className="absolute left-1/2 top-[6%] z-10 h-[28vh] w-[56vw] -translate-x-1/2 rounded-[999px] blur-[72px]"
-              style={{
-                background:
-                  "radial-gradient(ellipse at center, rgba(220,20,60,0.55) 0%, rgba(220,20,60,0.2) 45%, rgba(220,20,60,0) 75%)",
-              }}
-            />
-            <div
-              className="absolute left-[30%] top-[40%] z-10 h-[30vh] w-[24vw] rounded-[999px] blur-[80px]"
-              style={{
-                background:
-                  "radial-gradient(ellipse at center, rgba(220,20,60,0.38) 0%, rgba(220,20,60,0) 72%)",
-              }}
-            />
-            <div
-              className="absolute right-[30%] top-[40%] z-10 h-[30vh] w-[24vw] rounded-[999px] blur-[80px]"
-              style={{
-                background:
-                  "radial-gradient(ellipse at center, rgba(0,56,147,0.35) 0%, rgba(0,56,147,0) 72%)",
-              }}
-            />
-            <div
-              className="absolute left-1/2 top-[31%] z-10 h-[46vh] w-[46vw] -translate-x-1/2 rounded-[999px] opacity-80"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle at 50% 38%, rgba(220,20,60,0.28), rgba(220,20,60,0) 58%), radial-gradient(circle at 50% 63%, rgba(0,56,147,0.26), rgba(0,56,147,0) 60%), repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0.14) 0 2px, rgba(255,255,255,0) 2px 10px)",
-                filter: "blur(1px)",
-              }}
-            />
-            <div
-              className="absolute bottom-[-2%] left-1/2 z-10 h-[26vh] w-[56vw] -translate-x-1/2 rounded-[999px] opacity-90 blur-[78px]"
-              style={{
-                background:
-                  "radial-gradient(ellipse at center, rgba(0,56,147,0.5) 0%, rgba(0,56,147,0.2) 38%, rgba(220,20,60,0.12) 58%, rgba(0,56,147,0) 86%)",
-              }}
-            />
-            <Image
-              src="/phones.png"
-              alt="SalesSuite mobile app preview"
-              width={900}
-              height={900}
-              className="absolute left-1/2 top-[52%] z-20 h-auto w-[min(145vw,150vh)] max-w-none -translate-x-1/2 -translate-y-1/2"
-            />
+          <div className="relative mx-auto mt-12 h-[90vh] w-full overflow-hidden">
+            <div className="relative h-full w-full pt-[60px] pb-[60px]">
+              <div
+                className="absolute left-1/2 top-[10%] z-10 h-[28vh] w-[min(56vw,100%)] -translate-x-1/2 rounded-[999px] blur-[40px]"
+                style={{
+                  background:
+                    "radial-gradient(ellipse at center, rgba(220,20,60,0.55) 0%, rgba(220,20,60,0.2) 45%, rgba(220,20,60,0) 75%)",
+                }}
+              />
+              <div
+                className="absolute left-[30%] top-[42%] z-10 h-[30vh] w-[min(24vw,100%)] rounded-[999px] blur-[45px]"
+                style={{
+                  background:
+                    "radial-gradient(ellipse at center, rgba(220,20,60,0.38) 0%, rgba(220,20,60,0) 72%)",
+                }}
+              />
+              <div
+                className="absolute right-[30%] top-[42%] z-10 h-[30vh] w-[min(24vw,100%)] rounded-[999px] blur-[45px]"
+                style={{
+                  background:
+                    "radial-gradient(ellipse at center, rgba(0,56,147,0.35) 0%, rgba(0,56,147,0) 72%)",
+                }}
+              />
+              <div
+                className="absolute left-1/2 top-[33%] z-10 h-[46vh] w-[min(46vw,100%)] -translate-x-1/2 rounded-[999px] opacity-80"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at 50% 38%, rgba(220,20,60,0.28), rgba(220,20,60,0) 58%), radial-gradient(circle at 50% 63%, rgba(0,56,147,0.26), rgba(0,56,147,0) 60%), repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0.14) 0 2px, rgba(255,255,255,0) 2px 10px)",
+                  filter: "blur(1px)",
+                }}
+              />
+              <div
+                className="absolute bottom-[6%] left-1/2 z-10 h-[26vh] w-[min(56vw,100%)] -translate-x-1/2 rounded-[999px] opacity-90 blur-[45px]"
+                style={{
+                  background:
+                    "radial-gradient(ellipse at center, rgba(0,56,147,0.5) 0%, rgba(0,56,147,0.2) 38%, rgba(220,20,60,0.12) 58%, rgba(0,56,147,0) 86%)",
+                }}
+              />
+              <Image
+                src="/phones.png"
+                alt="SalesSuite mobile app preview"
+                width={900}
+                height={900}
+                className="absolute left-1/2 top-[52%] z-20 h-auto w-[min(100vw,120vh)] max-w-[900px] -translate-x-1/2 -translate-y-1/2 sm:w-[min(145vw,150vh)] sm:max-w-none"
+              />
+            </div>
           </div>
         </section>
 
