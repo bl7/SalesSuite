@@ -36,10 +36,10 @@ export default function Home() {
             />
           </div>
           <Link
-            href="#contact"
+            href="/auth/signup"
             className="rounded-full bg-zinc-800 px-10 py-3 text-[16px] font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
           >
-            Request demo
+            Sign up
           </Link>
         </header>
 
@@ -55,20 +55,14 @@ export default function Home() {
             leads, and orders.
           </h1>
           <p className="mx-auto mt-7 max-w-2xl text-[clamp(0.95rem,1.3vw,1.35rem)] leading-[1.5] text-zinc-600 dark:text-zinc-400">
-            Kora auto-detects shop arrivals using geofencing, logs visits with time and duration, and lets reps capture orders with totals, then sends them to back office.
+            Kora detects shop arrivals using geofencing, logs visits with time and duration, and lets reps submit orders with totals, straight to back office.
           </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3">
+          <div className="mt-8 flex items-center justify-center">
             <Link
               href="#contact"
               className="rounded-full bg-zinc-800 px-11 py-3 text-[17px] font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
             >
               Request demo
-            </Link>
-            <Link
-              href="#how-it-works"
-              className="text-[15px] font-medium text-zinc-600 underline underline-offset-2 dark:text-zinc-400"
-            >
-              See how it works
             </Link>
           </div>
 
@@ -171,6 +165,9 @@ export default function Home() {
               <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Send order</p>
             </div>
           </div>
+          <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-zinc-600 dark:text-zinc-400">
+            Tracking is configurable, Kora focuses on visit verification during working routes, not personal surveillance.
+          </p>
         </section>
 
         <section className="mt-16 rounded-[2rem] bg-white/70 px-6 py-10 text-center dark:bg-zinc-900/70">
@@ -190,9 +187,9 @@ export default function Home() {
             Teams trust Kora
           </h3>
           <div className="mt-8 grid gap-3 md:grid-cols-3">
-            <QuoteCard quote="We finally have proof of visits, not just promises." author="Regional Manager" />
-            <QuoteCard quote="Lead follow-ups are cleaner because every note is logged." author="Sales Ops" />
-            <QuoteCard quote="Orders come through with totals and item lists, no more messy calls." author="Back Office Lead" />
+            <QuoteCard quote="We finally have proof of visits, not just promises." author="Regional Manager, Paint Distribution" />
+            <QuoteCard quote="Lead follow-ups are cleaner because every note is logged." author="Sales Ops, FMCG" />
+            <QuoteCard quote="Orders come through with totals and item lists, no more messy calls." author="Back Office Lead, Wholesale" />
           </div>
         </section>
 
