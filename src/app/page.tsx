@@ -134,7 +134,7 @@ export default function Home() {
 
         <section className="pt-16 pb-8 text-center">
           <div className="mx-auto inline-flex items-center rounded-full border border-zinc-200 bg-white/70 px-6 py-2 text-[14px] text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-800/70 dark:text-zinc-200 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: "0.1s" }}>
-            Built for distributors and sales reps
+            For reps in the field and managers and back office in the dashboard
           </div>
           <h1
             className={`${displaySerif.className} mx-auto mt-8 max-w-[920px] text-[clamp(3.8rem,8vw,8.2rem)] leading-[0.95] tracking-[-0.02em] text-zinc-900 dark:text-zinc-100 animate-in fade-in slide-in-from-bottom-4 duration-700`}
@@ -225,7 +225,7 @@ export default function Home() {
             <InfoCard
               title="Leads"
               subtitle="Capture new shops in seconds."
-              description="Add a lead with name, contact, location, and notes. Convert to a customer when you're ready."
+              description="Add a lead with name, contact, location, and notes. Convert to a shop when you're ready and start capturing orders there."
               delay="100ms"
             />
             <InfoCard
@@ -273,7 +273,7 @@ export default function Home() {
             all in one place.
           </h3>
           <p className="mx-auto mt-3 max-w-2xl text-sm text-zinc-600 dark:text-zinc-400">
-            See visits per rep, shops covered vs missed, new leads captured, and orders submitted, by day and territory.
+            See visits per rep, shops covered vs missed, new leads captured, and orders submitted, by day and territory. Assign and reassign reps to shops as routes change.
           </p>
         </ScrollSection>
 
@@ -304,6 +304,7 @@ export default function Home() {
               { q: "Can reps capture orders from the field?", a: "Yes, reps can build orders with items and quantities, see totals, then submit to back office." },
               { q: "How do orders reach back office?", a: "Orders are delivered to the manager dashboard and can be exported for processing." },
               { q: "Is SalesSuite Android only?", a: "Yes, Android only for now." },
+              { q: "What happens when a rep leaves?", a: "You can deactivate them and reassign their shops to other reps in one flow, so coverage stays intact." },
             ].map((item) => (
               <FAQItem key={item.q} question={item.q} answer={item.a} />
             ))}
