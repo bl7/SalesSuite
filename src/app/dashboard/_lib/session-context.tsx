@@ -26,6 +26,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     void (async () => {
       const res = await fetch("/api/auth/me");
       const data = (await res.json()) as MeResponse;
+      if (res.status === 403 && data.subscriptionExpired) {
+        router.push(
+          `/subscription-expired${data.companyName ? `?company=${encodeURIComponent(data.companyName)}` : ""}`
+        );
+        return;
+      }
       if (!res.ok || !data.ok || !data.user || !data.company) {
         router.push("/auth/login");
         return;

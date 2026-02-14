@@ -19,6 +19,7 @@ export default function SignupPage() {
   const [success, setSuccess] = useState(false);
   const [signupEmail, setSignupEmail] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [companyAddress, setCompanyAddress] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -43,6 +44,7 @@ export default function SignupPage() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         companyName,
+        address: companyAddress.trim(),
         fullName,
         email,
         phone: `+977${phoneDigits}`,
@@ -170,6 +172,16 @@ export default function SignupPage() {
               value={companyName}
               onChange={(event) => setCompanyName(event.target.value)}
               placeholder="Company name"
+              className="h-14 w-full rounded-2xl border border-zinc-200 bg-[#f7f7f8] px-5 text-[24px] text-zinc-800 placeholder:text-zinc-400 md:text-[18px] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            />
+          </Field>
+
+          <Field>
+            <input
+              required
+              value={companyAddress}
+              onChange={(event) => setCompanyAddress(event.target.value)}
+              placeholder="Company address"
               className="h-14 w-full rounded-2xl border border-zinc-200 bg-[#f7f7f8] px-5 text-[24px] text-zinc-800 placeholder:text-zinc-400 md:text-[18px] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
             />
           </Field>

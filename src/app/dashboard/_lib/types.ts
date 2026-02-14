@@ -1,6 +1,8 @@
 export type MeResponse = {
   ok: boolean;
   error?: string;
+  subscriptionExpired?: boolean;
+  companyName?: string;
   user?: {
     id: string;
     fullName: string;
@@ -12,6 +14,8 @@ export type MeResponse = {
     id: string;
     name: string;
     slug: string;
+    subscriptionEndsAt?: string | null;
+    staffLimit?: number;
   };
 };
 

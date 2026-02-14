@@ -151,6 +151,26 @@ export async function POST(request: NextRequest) {
   }
 
   const db = getDb();
+
+  const limitRow = await db.query<{ staff_limit: number }>(
+    `SELECT COALESCE(staff_limit, 5)::int AS staff_limit FROM companies WHERE id = $1`,
+    [authResult.session.companyId]
+  );
+  const staffLimit = limitRow.rows[0]?.staff_limit ?? 5;
+  const totalAllowed = staffLimit + 1;
+
+  const countRow = await db.query<{ count: string }>(
+    `SELECT COUNT(*)::text AS count FROM company_users WHERE company_id = $1`,
+    [authResult.session.companyId]
+  );
+  const currentCount = parseInt(countRow.rows[0]?.count ?? "0", 10);
+  if (currentCount >= totalAllowed) {
+    return jsonError(
+      403,
+      `Staff limit reached. Your plan allows 1 manager + ${staffLimit} staff (${totalAllowed} users total). Contact support to increase your limit.`
+    );
+  }
+
   const client = await db.connect();
   const password = generateRandomPassword();
   const passwordHash = await hashPassword(password);

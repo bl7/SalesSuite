@@ -12,6 +12,7 @@ import { getBaseUrl } from "@/lib/url";
 const signupSchema = z.object({
   companyName: z.string().min(2).max(120),
   companySlug: z.string().min(2).max(80).optional(),
+  address: z.string().min(1, "Address is required").max(500),
   fullName: z.string().min(2).max(120),
   email: z.email().max(255),
   password: z.string().min(8).max(128),
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     return jsonError(400, parseResult.error.issues[0]?.message ?? "Invalid body");
   }
 
-  const { companyName, fullName, phone, password, role } = parseResult.data;
+  const { companyName, address, fullName, phone, password, role } = parseResult.data;
   const email = parseResult.data.email.toLowerCase().trim();
   const requestedSlug = parseResult.data.companySlug ?? slugify(companyName);
   const companySlug = requestedSlug || `company-${Date.now()}`;
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
   try {
     await client.query("BEGIN");
 
-    const companyId = await insertCompany(client, companyName, companySlug);
+    const companyId = await insertCompany(client, companyName, companySlug, address.trim());
     const userId = await findOrCreateUser(
       client,
       email,
@@ -107,14 +108,14 @@ export async function POST(request: Request) {
   }
 }
 
-async function insertCompany(client: PoolClient, name: string, slug: string) {
+async function insertCompany(client: PoolClient, name: string, slug: string, address: string) {
   const result = await client.query<{ id: string }>(
     `
-    INSERT INTO companies (name, slug)
-    VALUES ($1, $2)
+    INSERT INTO companies (name, slug, address, subscription_ends_at)
+    VALUES ($1, $2, $3, NOW() + INTERVAL '5 days')
     RETURNING id
     `,
-    [name, slug]
+    [name, slug, address]
   );
 
   return result.rows[0].id;

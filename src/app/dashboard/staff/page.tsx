@@ -257,6 +257,11 @@ export default function StaffPage() {
       .catch(() => setDeactivatePreview({ shops_only_this_rep: [], shops_other_reps_too: [] }));
   }, [deactivateStaff]);
 
+  const staffLimit = session.company.staffLimit ?? 5;
+  const totalAllowed = staffLimit + 1;
+  const totalCurrent = counts.active + counts.invited + counts.inactive;
+  const atLimit = totalCurrent >= totalAllowed;
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -265,12 +270,19 @@ export default function StaffPage() {
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             Manage reps and back office users.
           </p>
+          <p className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            {totalCurrent} of {totalAllowed} users allowed by your plan (1 manager + {staffLimit} staff).
+            {atLimit && (
+              <span className="ml-1 text-amber-600 dark:text-amber-400">At limit — contact support to add more.</span>
+            )}
+          </p>
         </div>
         {canManage && (
           <button
             type="button"
             onClick={() => setAddDrawerOpen(true)}
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            disabled={atLimit}
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 disabled:pointer-events-none dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             + Add staff
           </button>

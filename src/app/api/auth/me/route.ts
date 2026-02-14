@@ -1,4 +1,4 @@
-import { type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
 import { getRequestSession, jsonError, jsonOk } from "@/lib/http";
@@ -12,6 +12,9 @@ type MeRow = {
   company_name: string;
   company_user_id: string;
   role: "boss" | "manager" | "rep" | "back_office";
+  subscription_ends_at: string | null;
+  subscription_suspended: boolean;
+  staff_limit: number;
 };
 
 export async function GET(request: NextRequest) {
@@ -31,7 +34,10 @@ export async function GET(request: NextRequest) {
       c.slug AS company_slug,
       c.name AS company_name,
       cu.id AS company_user_id,
-      cu.role
+      cu.role,
+      c.subscription_ends_at::text,
+      COALESCE(c.subscription_suspended, false) AS subscription_suspended,
+      COALESCE(c.staff_limit, 5)::int AS staff_limit
     FROM company_users cu
     JOIN users u ON u.id = cu.user_id
     JOIN companies c ON c.id = cu.company_id
@@ -49,6 +55,25 @@ export async function GET(request: NextRequest) {
     return jsonError(401, "Unauthorized");
   }
 
+  const now = new Date();
+  const endsAt = row.subscription_ends_at ? new Date(row.subscription_ends_at) : null;
+  const isExpired =
+    row.subscription_suspended ||
+    endsAt === null ||
+    endsAt < now;
+
+  if (isExpired) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Subscription expired or suspended. Please contact support.",
+        subscriptionExpired: true,
+        companyName: row.company_name,
+      },
+      { status: 403 }
+    );
+  }
+
   return jsonOk({
     user: {
       id: row.user_id,
@@ -61,6 +86,8 @@ export async function GET(request: NextRequest) {
       id: row.company_id,
       name: row.company_name,
       slug: row.company_slug,
+      subscriptionEndsAt: row.subscription_ends_at,
+      staffLimit: row.staff_limit,
     },
   });
 }
