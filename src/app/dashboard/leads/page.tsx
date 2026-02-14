@@ -143,6 +143,30 @@ export default function LeadsPage() {
     await loadLeads();
   }
 
+  async function onConvertToShop(l: Lead) {
+    setWorking(true);
+    const res = await fetch(`/api/manager/leads/${l.id}/convert-to-shop`, {
+      method: "POST",
+    });
+    const data = (await res.json()) as {
+      ok: boolean;
+      error?: string;
+      shop?: { id: string; name: string };
+      message?: string;
+    };
+    setWorking(false);
+    if (!res.ok || !data.ok) {
+      toast.error(data.error ?? "Could not convert lead to shop");
+      return;
+    }
+    toast.success(
+      data.shop
+        ? `"${data.shop.name}" created. You can now place orders for this shop.`
+        : data.message ?? "Lead converted to shop."
+    );
+    await loadLeads();
+  }
+
   function handleFilter(status: string) {
     setFilterStatus(status);
     loadLeads(status, search);
@@ -254,8 +278,18 @@ export default function LeadsPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {NEXT_STATUS[l.status] && (
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      {l.status !== "converted" && l.status !== "lost" && (
+                        <button
+                          type="button"
+                          onClick={() => onConvertToShop(l)}
+                          disabled={working}
+                          className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+                        >
+                          Convert to shop
+                        </button>
+                      )}
+                      {NEXT_STATUS[l.status] && NEXT_STATUS[l.status] !== "converted" && (
                         <button
                           type="button"
                           onClick={() => onUpdate(l.id, { status: NEXT_STATUS[l.status] })}

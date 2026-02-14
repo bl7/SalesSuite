@@ -2,14 +2,27 @@
 
 import { useEffect, useState } from "react";
 import type { Shop, ShopListResponse } from "../_lib/types";
+import type { StaffListResponse } from "../_lib/types";
+import { useSession } from "../_lib/session-context";
 import { useToast } from "../_lib/toast-context";
 
+type Rep = { company_user_id: string; full_name: string };
+
 export default function ShopsPage() {
+  const session = useSession();
   const toast = useToast();
+  const canAssignRep =
+    session.user.role === "boss" ||
+    session.user.role === "manager" ||
+    session.user.role === "back_office";
+  const canAddShop = session.user.role === "boss" || session.user.role === "manager";
+
   const [shops, setShops] = useState<Shop[]>([]);
+  const [reps, setReps] = useState<Rep[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [assignShop, setAssignShop] = useState<Shop | null>(null);
 
   async function loadShops() {
     const res = await fetch("/api/manager/shops");
@@ -24,15 +37,27 @@ export default function ShopsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const res = await fetch("/api/manager/shops");
-      const data = (await res.json()) as ShopListResponse;
+      const [shopsRes, staffRes] = await Promise.all([
+        fetch("/api/manager/shops"),
+        ...(canAssignRep ? [fetch("/api/manager/staff")] : [Promise.resolve(null)]),
+      ]);
       if (cancelled) return;
-      if (res.ok && data.ok) setShops(data.shops ?? []);
-      else toast.error(data.error ?? "Failed to load shops");
+      const shopsData = (await shopsRes.json()) as ShopListResponse;
+      if (shopsRes.ok && shopsData.ok) setShops(shopsData.shops ?? []);
+      else toast.error((shopsData as { error?: string }).error ?? "Failed to load shops");
+      if (canAssignRep && staffRes) {
+        const staffData = (await (staffRes as Response).json()) as StaffListResponse;
+        if (staffData.ok && staffData.staff)
+          setReps(
+            staffData.staff
+              .filter((s) => s.role === "rep" && s.status === "active")
+              .map((s) => ({ company_user_id: s.company_user_id, full_name: s.full_name }))
+          );
+      }
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [canAssignRep]);
 
   async function onAdd(payload: {
     name: string;
@@ -66,13 +91,15 @@ export default function ShopsPage() {
             Manage shop locations and geofencing for visit verification.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          + Add Shop
-        </button>
+        {canAddShop && (
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          >
+            + Add Shop
+          </button>
+        )}
       </div>
 
       {showForm && (
@@ -80,6 +107,19 @@ export default function ShopsPage() {
           onClose={() => setShowForm(false)}
           onSubmit={onAdd}
           working={working}
+        />
+      )}
+
+      {assignShop && (
+        <AssignRepModal
+          shop={assignShop}
+          reps={reps}
+          onClose={() => setAssignShop(null)}
+          onSuccess={() => {
+            setAssignShop(null);
+            loadShops();
+          }}
+          toast={toast}
         />
       )}
 
@@ -118,7 +158,20 @@ export default function ShopsPage() {
                     {s.latitude.toFixed(4)}, {s.longitude.toFixed(4)}
                   </td>
                   <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{s.geofence_radius_m}m</td>
-                  <td className="px-5 py-3.5 text-zinc-600 dark:text-zinc-400">{s.assignment_count}</td>
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-zinc-600 dark:text-zinc-400">{s.assignment_count}</span>
+                      {canAssignRep && (
+                        <button
+                          type="button"
+                          onClick={() => setAssignShop(s)}
+                          className="text-xs font-medium text-zinc-500 underline decoration-zinc-300 hover:text-zinc-700 dark:text-zinc-400 dark:decoration-zinc-600 dark:hover:text-zinc-300"
+                        >
+                          {s.assignment_count === 0 ? "Assign rep" : "Add rep"}
+                        </button>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-5 py-3.5">
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
                       s.is_active
@@ -134,7 +187,7 @@ export default function ShopsPage() {
           </table>
           {!shops.length && (
             <div className="px-5 py-10 text-center text-sm text-zinc-400">
-              No shops yet. Click &quot;+ Add Shop&quot; to get started.
+              {canAddShop ? "No shops yet. Click \"+ Add Shop\" to get started." : "No shops yet."}
             </div>
           )}
         </div>
@@ -215,6 +268,98 @@ function AddShopModal(props: {
             </button>
             <button type="submit" disabled={props.working} className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200">
               {props.working ? "Adding…" : "Add Shop"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AssignRepModal(props: {
+  shop: Shop;
+  reps: Rep[];
+  onClose: () => void;
+  onSuccess: () => void;
+  toast: { success: (msg: string) => void; error: (msg: string) => void };
+}) {
+  const [repId, setRepId] = useState("");
+  const [isPrimary, setIsPrimary] = useState(false);
+  const [working, setWorking] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!repId) {
+      props.toast.error("Select a rep");
+      return;
+    }
+    setWorking(true);
+    const res = await fetch("/api/manager/shop-assignments", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        shopId: props.shop.id,
+        repCompanyUserId: repId,
+        isPrimary,
+      }),
+    });
+    const data = (await res.json()) as { ok: boolean; error?: string };
+    setWorking(false);
+    if (!res.ok || !data.ok) {
+      props.toast.error(data.error ?? "Could not assign rep");
+      return;
+    }
+    props.toast.success("Rep assigned.");
+    props.onSuccess();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4"
+      onClick={props.onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="assign-rep-title"
+    >
+      <div
+        className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="assign-rep-title" className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+          Assign rep to {props.shop.name}
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Rep</label>
+            <select
+              required
+              value={repId}
+              onChange={(e) => setRepId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Select rep</option>
+              {props.reps.map((r) => (
+                <option key={r.company_user_id} value={r.company_user_id}>
+                  {r.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={isPrimary}
+              onChange={(e) => setIsPrimary(e.target.checked)}
+              className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800"
+            />
+            <span className="text-sm text-zinc-600 dark:text-zinc-400">Primary rep for this shop</span>
+          </label>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={props.onClose} className="rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800">
+              Cancel
+            </button>
+            <button type="submit" disabled={working} className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200">
+              {working ? "Assigning…" : "Assign"}
             </button>
           </div>
         </form>

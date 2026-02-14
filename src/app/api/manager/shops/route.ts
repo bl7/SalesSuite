@@ -23,7 +23,7 @@ const createShopSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  const authResult = ensureRole(await getRequestSession(request), ["boss", "manager"]);
+  const authResult = ensureRole(await getRequestSession(request), ["boss", "manager", "back_office"]);
   if (!authResult.ok) {
     return authResult.response;
   }
