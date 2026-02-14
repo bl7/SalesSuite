@@ -126,9 +126,9 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <div className="relative min-h-screen overflow-x-hidden bg-[#121316] text-zinc-900 dark:text-zinc-100">
-        {/* Main content — sits above the sticky footer, has rounded bottom + background */}
-        <main className="relative z-10 overflow-x-hidden rounded-b-[4.5rem] bg-[#f3f2f6] pb-24 dark:bg-[#0d1117]">
+      <div className="relative min-h-screen overflow-x-clip bg-[#121316] text-zinc-900 dark:text-zinc-100">
+        {/* Main content — sits above the sticky footer; overflow-x-clip avoids making main a scroll container so doc scrolls */}
+        <main className="relative z-10 overflow-x-clip rounded-b-[4.5rem] bg-[#f3f2f6] pb-24 dark:bg-[#0d1117]">
           <div className="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-8 lg:px-12">
           <Header />
 
@@ -406,7 +406,7 @@ export default function Home() {
         </div>{/* close inner max-w-7xl wrapper */}
       </main>{/* close main — rounded-b content layer */}
 
-      {/* Footer — sticky underneath, revealed as main scrolls away */}
+      {/* Footer — in flow after main; only appears when you scroll down (revealed as you reach it) */}
       <footer className="sticky bottom-0 z-0 -mt-px bg-[#121316] text-zinc-200 [background-image:radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.03),transparent_28%),repeating-linear-gradient(90deg,rgba(255,255,255,0.012)_0px,rgba(255,255,255,0.012)_1px,transparent_1px,transparent_10px)]">
         <div className="mx-auto max-w-7xl px-8 pb-8 pt-16 md:px-12">
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
@@ -428,7 +428,7 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Big SalesSuite wordmark — bottom ~30–40% buried below visible area */}
+        {/* Big SalesSuite wordmark — main attraction of the footer */}
         <div className="relative h-[clamp(5rem,15vw,16rem)] overflow-hidden">
           <p className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 select-none text-[clamp(8rem,22vw,24rem)] leading-[0.82] font-semibold tracking-[-0.02em] text-white/95">
             SalesSuite
