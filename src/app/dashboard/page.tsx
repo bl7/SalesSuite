@@ -35,13 +35,6 @@ export default function OverviewPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Redirect reps away from overview
-  useEffect(() => {
-    if (session.user.role === "rep") {
-      router.push("/dashboard/orders");
-    }
-  }, [session.user.role, router]);
-
   useEffect(() => {
     let cancelled = false;
     (async () => {

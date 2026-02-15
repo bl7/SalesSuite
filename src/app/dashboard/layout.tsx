@@ -53,16 +53,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     router.push("/auth/login");
   }
 
-  const isRep = session.user.role === "rep";
-  const visibleNavItems = isRep
-    ? navItems.filter((item) =>
-        item.href !== "/dashboard" &&
-        item.href !== "/dashboard/staff" &&
-        item.href !== "/dashboard/shops" &&
-        item.href !== "/dashboard/assignments"
-      )
-    : navItems;
-
   const roleLabel =
     session.user.role === "boss" ? "Boss" :
     session.user.role === "manager" ? "Manager" :
@@ -108,7 +98,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-          {visibleNavItems.map((item) => {
+          {navItems.map((item) => {
             const active =
               item.href === "/dashboard"
                 ? pathname === "/dashboard"

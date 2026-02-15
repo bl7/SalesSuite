@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 type LoginResponse = {
   ok: boolean;
   error?: string;
+  session?: { role: string };
 };
 
 function LoginForm() {
@@ -47,7 +48,11 @@ function LoginForm() {
       return;
     }
 
-    router.push("/dashboard");
+    if (data.session?.role === "rep") {
+      router.push("/rep-mobile-required");
+    } else {
+      router.push("/dashboard");
+    }
   }
 
   return (
